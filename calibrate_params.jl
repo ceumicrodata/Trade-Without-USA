@@ -1,6 +1,10 @@
 module CalibrateParameters
 	include("calibration_utils.jl")
-	using JLD2, FileIO, ..ImpvolEquilibrium, Statistics
+	using JLD2, FileIO, ..ImpvolEquilibrium, Statistics, LinearAlgebra
+
+	function eye(n)
+		return Matrix{Float64}(I, n, n)
+	end
 
 	function calibrate_parameters!(parameters, fname="../../data/impvol_data.jld2")
 		data = load(fname)
@@ -21,8 +25,8 @@ module CalibrateParameters
 		parameters[:final_expenditure_shares] = final_expenditure_shares
 
 		# broad country weights for final expenditure
-		country_weights = sum(data["va"], (1,3,4))
-		country_weights = country_weights ./ sum(country_weights, 2)
+		country_weights = sum(data["va"], dims=(1,3,4))
+		country_weights = country_weights ./ sum(country_weights, dims=2)
 
 		calculate_p_and_nu!(parameters, data, final_expenditure_shares, country_weights)
 
@@ -35,7 +39,7 @@ module CalibrateParameters
 		parameters[:A] = calculate_A(parameters, data)
 
 		# total world expenditure in the data .- needed to get reasonable starting values
-		parameters[:nominal_world_expenditure] = sum(data["va"] ./ parameters[:beta_j], (1,2,3))
+		parameters[:nominal_world_expenditure] = sum(data["va"] ./ parameters[:beta_j], dims=(1,2,3))
 		# deflate trade imbalance to 1972 dollars
 		deflator = CES_price_index(parameters[:nu_njt][:,end:end,:,:], parameters[:p_sectoral][:,end:end,:,:], parameters[:sigma])
 		info(deflator[:])
@@ -127,11 +131,11 @@ module CalibrateParameters
 
 		for t in 1:T
 			va_t = transpose(sum(va[1,:,:,t],1))
-			alpha[:,t] = (eye(J) .- gamma) * diagm(1 ./ beta[:],0) * va_t / sum(va_t)
+			alpha[:,t] = (I .- gamma) * diagm(1 ./ beta[:],0) * va_t / sum(va_t)
 		end
 
 		# Replace negative elements with 0
-		alpha = (alpha + abs.(alpha)) / 2
+		alpha = (alpha .+ abs.(alpha)) / 2
 
 		# Smooth the series
 		alpha_c, alpha_t = DetrendUtilities.detrend(alpha, weights)
@@ -139,7 +143,7 @@ module CalibrateParameters
 		# Normalization
 		alpha = alpha_t ./ sum(alpha_t,1)
 
-		return alpha = permutedims(cat(ndims(alpha) + 2,alpha), (3,4,1,2))
+		return alpha = permutedims(cat(ndims(alpha) .+ 2,alpha), (3,4,1,2))
 	end
 
 	function trade_costs(parameters)
@@ -162,8 +166,8 @@ module CalibrateParameters
 			end
 		end
 
-		kappa[kappa .< n_zero] = n_zero
-		kappa[:,:,end,:] = repeat(eye(N), outer = [1,1,1,T]) # Services
+		kappa[kappa .< n_zero] .= n_zero
+		kappa[:,:,end:end,:] .= repeat(eye(N), outer = [1,1,1,T]) # Services
 
 		kappa = min.(kappa,1)
 		# smooth kappa over time so that it does not introduce shocks
@@ -180,16 +184,16 @@ module CalibrateParameters
 
 		d = import_shares
 
-		within_import = d ./ sum(d, 2)
-		domestic_per_import = 1 ./ sum(d, 2) .- 1
-		domestic_per_import[domestic_per_import .< n_zero] = n_zero
-		d = within_import ./ (1 + domestic_per_import)
+		within_import = d ./ sum(d, dims=2)
+		domestic_per_import = 1 ./ sum(d, dims=2) .- 1
+		domestic_per_import[domestic_per_import .< n_zero] .= n_zero
+		d = within_import ./ (1 .+ domestic_per_import)
 
 		for n in 1:N
 			d[n,n,:,:] = ones(J,T) .- dropdims(sum(d[n,:,:,:], dims=1), dims=1)
 		end
 
-		d[d .< n_zero] = n_zero
+		d[d .< n_zero] .= n_zero
 
 		return d ./ sum(d, dims=2)
 	end
@@ -198,14 +202,14 @@ module CalibrateParameters
 		theta = parameters[:theta]
 		eta = parameters[:eta]
 
-		return gamma((theta + 1 .- eta)/theta)
+		return gamma((theta .+ 1 .- eta)/theta)
 	end
 
 	function calculate_B(parameters)
 		beta = parameters[:beta_j]
 		gamma = parameters[:gamma_jk]
 
-		gamma = permutedims(cat(ndims(gamma) + 2,gamma), [1,3,2,4])
+		gamma = permutedims(cat(ndims(gamma) .+ 2,gamma), [1,3,2,4])
 		return B = (beta .^ -beta) .* prod(gamma .^ -gamma, 1)
 	end
 
@@ -247,7 +251,7 @@ module CalibrateParameters
 		# NB: US as the last country in the matrix
 		p_sectoral_US = p_sectoral_base[:,end:end,:,:]
 		nu_US = final_expenditure_shares[:,end:end,:,:] .* p_sectoral_US .^ (sigma-1)
-		nu_US = nu_US ./ sum(nu_US, 3)
+		nu_US = nu_US ./ sum(nu_US, dims=3)
 		P_US = CES_price_index(nu_US, p_sectoral_US, sigma)
 		@assert p_sectoral_US[1,1,:,1] ≈ ones(J) atol=1e-9
 		@assert P_US[1,1,1,1] ≈ 1.0 atol=1e-9
@@ -255,7 +259,7 @@ module CalibrateParameters
 		# step 2: calculate sectoral prices from market shares relative to US
 		# US is assumed to be chosen as a base country (US = end), else pwt should be used to do the conversion
 		# normalization: p_sectoral[1,end,:,1] = 1.0
-		p_sectoral = array_transpose(exp.( mean(1 / theta * log.(d ./ permutedims(cat(ndims(d),d[end,:,:,:]),[4,1,2,3])) .- log.(kappa ./ permutedims(cat(ndims(kappa),kappa[end,:,:,:]),[4,1,2,3])), dims=2) + repeat(permutedims(cat(ndims(p_sectoral_base),log.(p_sectoral_base[:,end,:,:])), [1,4,2,3]), outer = [size(d,1),1,1,1]) ))
+		p_sectoral = array_transpose(exp.( mean(1 / theta * log.(d ./ permutedims(cat(ndims(d),d[end,:,:,:]),[4,1,2,3])) .- log.(kappa ./ permutedims(cat(ndims(kappa),kappa[end,:,:,:]),[4,1,2,3])), dims=2) .+ repeat(permutedims(cat(ndims(p_sectoral_base), log.(p_sectoral_base[:,end,:,:])), [1,4,2,3]), outer = [size(d,1),1,1,1]) ))
 		@assert any(isnan, p_sectoral[:,:,1:end-1,:]) == false
 		# step 3: calculate tradable nu and infer nontradable nu
 		nu = final_expenditure_shares .* (p_sectoral ./ (data["pwt"] .* P_US)) .^ (sigma-1)
@@ -331,7 +335,7 @@ module CalibrateParameters
 
 		#beta = dropdims(beta,(1,2,4))
 		revenue = va ./ beta
-		expenditure = zeros(revenue)
+		expenditure = zeros(size(revenue))
 		for j=1:J
 			for t=1:T
 				expenditure[1,:,j,t]  = revenue[1,:,j,t]' * inv(d[:,:,j,t])
@@ -349,7 +353,7 @@ module CalibrateParameters
 		nu_c, nu_t = DetrendUtilities.detrend(nu_guess, weights)
 
 		# Normalization
-		return nu_t ./ sum(nu_t, 3)	
+		return nu_t ./ sum(nu_t, dims=3)	
 end
 
 	function estimate_AR1(data)

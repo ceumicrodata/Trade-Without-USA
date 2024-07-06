@@ -98,7 +98,7 @@ function compute_price!(random_variables, parameters, t)
 end
 
 function CES_price_index(alpha, P_njs, sigma)
-	return sum(alpha .* P_njs .^ (1-sigma), 3) .^ (1/(1-sigma))
+	return sum(alpha .* P_njs .^ (1-sigma), dims=3) .^ (1/(1-sigma))
 end
 
 function compute_price_index!(random_variables, parameters, t)
@@ -119,7 +119,7 @@ function free_trade_country_shares!(random_variables, parameters)
 	beta_j = parameters[:beta_j]
 
 	d_njs = A_njs .^ (theta ./ (1 + theta*beta_j)) .* L_njs .^ (theta .* beta_j ./ (1 + theta*beta_j))
-	random_variables[:d_njs_free] = d_njs ./ sum(d_njs,2)
+	random_variables[:d_njs_free] = d_njs ./ sum(d_njs, dims=2)
 end
 
 function free_trade_labor_shares!(random_variables, parameters, t)
@@ -131,7 +131,7 @@ function free_trade_labor_shares!(random_variables, parameters, t)
 
 	y_njs = beta_j .* d_njs .* E_jt
 
-	random_variables[:L_njs_free] = y_njs ./ sum(y_njs, 3)
+	random_variables[:L_njs_free] = y_njs ./ sum(y_njs, dims=3)
 end
 
 function free_trade_wages!(random_variables, parameters, t)
@@ -194,7 +194,7 @@ end
 
 function CES_share(nu, price, sigma)
 	temp = nu .* price .^ (1-sigma)
-	return temp ./ sum(temp, 3)
+	return temp ./ sum(temp, dims=3)
 end
 
 function compute_expenditure_shares!(random_variables, parameters, t)
@@ -205,14 +205,14 @@ function compute_expenditure_shares!(random_variables, parameters, t)
 	# encompass CES and Cobb-Douglas
 	alpha_njt = CES_share(nu, random_variables[:P_njs], parameters[:sigma])
 	S_nt = non_random_variable(parameters[:S_nt], t)
-	expenditure = sum(R_nks, 3) .- S_nt
+	expenditure = sum(R_nks, dims=3) .- S_nt
 
 	wagebill_ns = rotate_sectors(beta_j[:]', R_nks)
 	intermediate_njs = rotate_sectors(gamma_jk, R_nks)
 	e_njs = alpha_njt .* wagebill_ns .+ intermediate_njs .- alpha_njt .* S_nt
 	# trade imbalance may make it negative
 	e_njs = max.(parameters[:numerical_zero], e_njs)
-	random_variables[:e_mjs] = array_transpose(e_njs ./ sum(e_njs, 3))
+	random_variables[:e_mjs] = array_transpose(e_njs ./ sum(e_njs, dims=3))
 end
 
 function compute_real_gdp!(random_variables, parameters, t)
@@ -226,7 +226,7 @@ end
 
 function fixed_expenditure_shares!(random_variables, parameters, t)
 	R_mjs = array_transpose(random_variables[:R_njs])
-	expenditure = sum(R_mjs, 3) .- array_transpose(non_random_variable(parameters[:S_nt], t))
+	expenditure = sum(R_mjs, dims=3) .- array_transpose(non_random_variable(parameters[:S_nt], t))
 	random_variables[:E_mjs] = random_variables[:e_mjs] .* max.(parameters[:numerical_zero], expenditure)
 end
 
@@ -237,7 +237,7 @@ function shadow_price_step(random_variables, parameters, t)
 	kappa_mnjt = non_random_variable(parameters[:kappa_mnjt], t)
 	P_mjs = array_transpose(random_variables[:P_njs])
 
-	return sum( (kappa_mnjt .* P_mjs) .^ theta .* E_mjs ./ R_njs, 1) .^ (1/theta)
+	return sum( (kappa_mnjt .* P_mjs) .^ theta .* E_mjs ./ R_njs, dims=1) .^ (1/theta)
 end
 
 function starting_values!(random_variables, parameters, t)
@@ -310,15 +310,15 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 
 		middle_loop!(random_variables, parameters, t)
 
-		w_ns = sum(random_variables[:w_njs] .* random_variables[:L_njs], 3)
+		w_ns = sum(random_variables[:w_njs] .* random_variables[:L_njs], dims=3)
 		wage_gap = random_variables[:w_njs] ./ w_ns
-		return sum(parameters[:one_over_rho]*log.(w_ns) .- 0.5*sum((random_variables[:L_njs] .- L_nj_star).^2, 3))
+		return sum(parameters[:one_over_rho]*log.(w_ns) .- 0.5*sum((random_variables[:L_njs] .- L_nj_star).^2, dims=3))
 	end
 
 	function calculate_derivative(random_variables, L_nj_star, parameters)
 		w_njs = random_variables[:w_njs]
 		L_njs = random_variables[:L_njs]
-		w_ns = sum(w_njs .* random_variables[:L_njs], 3)
+		w_ns = sum(w_njs .* random_variables[:L_njs], dims=3)
 		wage_gap = w_njs ./ w_ns
 		gradient = parameters[:one_over_rho]*wage_gap .- (L_njs .- L_nj_star)
 
@@ -370,7 +370,7 @@ function expected_wage_share(random_variables)
 	L_njs = random_variables[:L_njs]
 
 	wage_bill = w_njs .* L_njs
-	wage_share = wage_bill ./ sum(wage_bill, 3)
+	wage_share = wage_bill ./ sum(wage_bill, dims=3)
 
 	return expected_value(wage_share)
 end
