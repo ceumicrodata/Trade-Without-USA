@@ -10,6 +10,10 @@ macro unpack_dictionary(expression)
 	end 
 end
 
+function eye(n)
+	return Matrix{Float64}(I, n, n)
+end
+
 function fill_dict(;kwargs...)
 	return Dict(kwargs)
 end
@@ -43,8 +47,8 @@ end
 
 function eigen_share(A)
 	# the solution to x = Ax with x'1 = 1
-	D, V = eig(A)
-	i = find(abs.(D - 1.0) .< 1e-6)[1]
+	D, V = eigen(A)
+	i = (1:length(D))[abs.(D .- 1.0) .< 1e-6][1]
 	return V[:,i] ./ sum(V[:,i])
 end
 

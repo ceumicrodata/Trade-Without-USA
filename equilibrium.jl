@@ -2,7 +2,7 @@ module ImpvolEquilibrium
 
 export period_wrapper, coerce_parameters!, rotate_sectors, CES_price_index, array_transpose, remove_shock!
 
-using Logging
+using Logging, LinearAlgebra, Random, Statistics
 
 include("utils.jl")
 parameters = Dict{Symbol, Any}()
@@ -46,7 +46,7 @@ function rotate_sectors(A, y)
 	for m=1:M
 		for n=1:N
 			for t=1:T
-				B[m,n,:,t] = A * y[m,n,:,t]
+				B[m,n,:,t] .= A * y[m,n,:,t]
 			end
 		end
 	end
@@ -79,7 +79,7 @@ function free_trade_sector_shares!(parameters)
 
 	revenue_shares = zeros(1,1,J,T)
 	for t=1:T
-		revenue_shares[1,1,:,t] = eigen_share(alpha_jt[1,1,:,t]*beta_j[1,1,:,1]' + gamma_jk)
+		revenue_shares[1,1,:,t] .= eigen_share(alpha_jt[1,1,:,t]*beta_j[1,1,:,1]' .+ gamma_jk)
 	end
 	parameters[:sector_shares] = revenue_shares
 end
@@ -118,7 +118,7 @@ function free_trade_country_shares!(random_variables, parameters)
 	theta = parameters[:theta]
 	beta_j = parameters[:beta_j]
 
-	d_njs = A_njs .^ (theta ./ (1 + theta*beta_j)) .* L_njs .^ (theta .* beta_j ./ (1 + theta*beta_j))
+	d_njs = A_njs .^ (theta ./ (1 .+ theta*beta_j)) .* L_njs .^ (theta .* beta_j ./ (1 .+ theta*beta_j))
 	random_variables[:d_njs_free] = d_njs ./ sum(d_njs, dims=2)
 end
 
@@ -156,7 +156,7 @@ function free_trade_prices!(random_variables, parameters, t)
 	A_njs = random_variables[:A_njs]
 	gamma_jk = parameters[:gamma_jk]'
 
-	random_variables[:P_njs] = exp.(rotate_sectors(inv(eye(gamma_jk)-gamma_jk), log.(xi * d_njs .^(1/theta) .* B_j .* (w_njs .^beta_j) ./ A_njs)))
+	random_variables[:P_njs] = exp.(rotate_sectors(inv(eye(size(gamma_jk, 1)) .- gamma_jk), log.(xi * d_njs .^(1/theta) .* B_j .* (w_njs .^beta_j) ./ A_njs)))
 	random_variables[:rho_njs] = random_variables[:P_njs] ./ d_njs .^(1/theta)
 	input_price_index!(random_variables, parameters)
 end
@@ -265,7 +265,7 @@ function inner_loop!(random_variables, parameters, t)
 		compute_wage!(random_variables, parameters)
 		old_R = random_variables[:R_njs]
 		compute_revenue!(random_variables, parameters)
-		random_variables[:R_njs] = lambda*random_variables[:R_njs] + (1-lambda)*old_R
+		random_variables[:R_njs] = lambda*random_variables[:R_njs] .+ (1-lambda)*old_R
 		fixed_expenditure_shares!(random_variables, parameters, t)
 		deflate_all_nominal_variables!(random_variables, parameters, t)
 
@@ -301,7 +301,7 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 	function max_step_size(x0, direction)
 		nulla = parameters[:numerical_zero]
 		negative_entries = min.(direction, -nulla)
-		return minimum(nulla - x0 ./ negative_entries, 3)
+		return minimum(nulla .- x0 ./ negative_entries, 3)
 	end
 
 	function evaluate_utility(random_variables, L_nj_star, parameters, t)
@@ -411,9 +411,10 @@ function period_wrapper(parameters, t)
 	random_variables[:A_njs] = A_njs
 
 	random_variables[:L_njs] = zeros(1,N,J,1)
+
 	for n=1:N
 		# start from expenditure labor weights
-		random_variables[:L_njs][1,n,:,1] = parameters[:importance_weight]
+		random_variables[:L_njs][1,n,:,1] .= parameters[:importance_weight][:]
 	end
 	free_trade_labor_shares!(random_variables, parameters, t)
 	stv = random_variables[:L_njs_free]
