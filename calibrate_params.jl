@@ -1,6 +1,8 @@
 module CalibrateParameters
 	include("calibration_utils.jl")
-	using JLD2, FileIO, ..ImpvolEquilibrium, Statistics, LinearAlgebra
+	using JLD2, FileIO, ..ImpvolEquilibrium, Statistics, LinearAlgebra, Logging
+	import SpecialFunctions
+	const gamma_function = SpecialFunctions.gamma
 
 	function eye(n)
 		return Matrix{Float64}(I, n, n)
@@ -42,7 +44,7 @@ module CalibrateParameters
 		parameters[:nominal_world_expenditure] = sum(data["va"] ./ parameters[:beta_j], dims=(1,2,3))
 		# deflate trade imbalance to 1972 dollars
 		deflator = CES_price_index(parameters[:nu_njt][:,end:end,:,:], parameters[:p_sectoral][:,end:end,:,:], parameters[:sigma])
-		info(deflator[:])
+		@info deflator[:]
 
 		parameters[:S_nt_data] = (data["trade_balance"] .- mean(data["trade_balance"]; dims=2)) ./ deflator
 
@@ -143,7 +145,7 @@ module CalibrateParameters
 		# Normalization
 		alpha = alpha_t ./ sum(alpha_t,1)
 
-		return alpha = permutedims(cat(ndims(alpha) .+ 2,alpha), (3,4,1,2))
+		return alpha = permutedims(cat(alpha, dims=ndims(alpha) + 2), (3,4,1,2))
 	end
 
 	function trade_costs(parameters)
@@ -202,15 +204,15 @@ module CalibrateParameters
 		theta = parameters[:theta]
 		eta = parameters[:eta]
 
-		return gamma((theta .+ 1 .- eta)/theta)
+		return gamma_function((theta + 1 - eta)/theta)
 	end
 
 	function calculate_B(parameters)
 		beta = parameters[:beta_j]
 		gamma = parameters[:gamma_jk]
 
-		gamma = permutedims(cat(ndims(gamma) .+ 2,gamma), [1,3,2,4])
-		return B = (beta .^ -beta) .* prod(gamma .^ -gamma, 1)
+		gamma = permutedims(cat(gamma, dims=ndims(gamma) + 2), [1,3,2,4])
+		return B = (beta .^ -beta) .* prod(gamma .^ -gamma, dims=1)
 	end
 
 	function calculate_nominal_wages(parameters, data)
@@ -259,13 +261,30 @@ module CalibrateParameters
 		# step 2: calculate sectoral prices from market shares relative to US
 		# US is assumed to be chosen as a base country (US = end), else pwt should be used to do the conversion
 		# normalization: p_sectoral[1,end,:,1] = 1.0
-		p_sectoral = array_transpose(exp.( mean(1 / theta * log.(d ./ permutedims(cat(ndims(d),d[end,:,:,:]),[4,1,2,3])) .- log.(kappa ./ permutedims(cat(ndims(kappa),kappa[end,:,:,:]),[4,1,2,3])), dims=2) .+ repeat(permutedims(cat(ndims(p_sectoral_base), log.(p_sectoral_base[:,end,:,:])), [1,4,2,3]), outer = [size(d,1),1,1,1]) ))
+		# Permute the dimensions of the last slice of d and kappa
+		d_permuted = permutedims(cat(d[end, :, :, :], dims=ndims(d)), [4, 1, 2, 3])
+		kappa_permuted = permutedims(cat(kappa[end, :, :, :], dims=ndims(kappa)), [4, 1, 2, 3])
+
+		# Compute the mean after performing element-wise operations
+		log_term = log.(d ./ d_permuted) .- log.(kappa ./ kappa_permuted)
+		mean_log_term = mean(1 / theta * log_term, dims=2)
+
+		# Permute the dimensions of the log-transformed p_sectoral_base and repeat it
+		p_sectoral_base_permuted = permutedims(cat(log.(p_sectoral_base[:, end, :, :]), dims=ndims(p_sectoral_base)), [1, 4, 2, 3])
+
+		# Compute the exponential of the mean log term and add the repeated p_sectoral_base
+		# no need to repeat p_sectoral_base_permuted, this is not MATLAB
+		result = exp.(mean_log_term .+ p_sectoral_base_permuted)
+
+		# Transpose the resulting array
+		p_sectoral = array_transpose(result)
+
 		@assert any(isnan, p_sectoral[:,:,1:end-1,:]) == false
 		# step 3: calculate tradable nu and infer nontradable nu
 		nu = final_expenditure_shares .* (p_sectoral ./ (data["pwt"] .* P_US)) .^ (sigma-1)
 		@assert any(isnan, nu[:,:,1:end-1,:]) == false
 
-		nontradable_nu = 1 .- sum(final_expenditure_shares[:,:,1:end-1,:], 3)
+		nontradable_nu = 1 .- sum(final_expenditure_shares[:,:,1:end-1,:], dims=3)
 		# Replace negative elements with second smallest positive
 		nu[:,:,end:end,:] .= DetrendUtilities.winsorize(nontradable_nu, 1)
 		nu .= nu ./ sum(nu, dims=3)
@@ -370,7 +389,7 @@ end
 		for n=1:N
 			for j=1:J
 				y = current[1,n,j,:]
-				X = cat(2, ones(T-1), lag[1,n,j,:])
+				X = cat(ones(T-1), lag[1,n,j,:], dims=2)
 
 				constant[1,n,j,1], rho[1,n,j,1] = X \ y
 				sigma[1,n,j,1] = std(y .- X * [constant[1,n,j,1], rho[1,n,j,1]])
@@ -400,14 +419,14 @@ end
 		_, N, J, T = size(data)
 		constant, rho, sigma = estimate_AR1(data)
 
-		draws = Array{Array{Float64, 4}}(T)
+		draws = Array{Array{Float64, 4}}(undef, T)
 		draws[1] = ImpvolEquilibrium.non_random_variable(data, 1)
 		for t=2:T
-			innovation = sigma .* randn(1,N,J,S .- 1)
+			innovation = sigma .* randn(1,N,J,S - 1)
 			random_realization = ImpvolEquilibrium.non_random_variable(data, t)
 			past_productivity = ImpvolEquilibrium.non_random_variable(data, t-1)
 			# reversion towards mean
-			draws[t] = cat(4, random_realization, constant .* (1-rho) .+ past_productivity .* rho .+ innovation)
+			draws[t] = cat(random_realization, constant .* (1 .- rho) .+ past_productivity .* rho .+ innovation, dims=4)
 		end
 		return draws
 	end

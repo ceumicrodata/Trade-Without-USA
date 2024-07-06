@@ -51,7 +51,7 @@ end
 function non_random_variable(y, t)
 	# array coersion is going to take care of rest
 	B = y[:,:,:,t]
-	return cat(ndims(B)+1, B)
+	return cat(B, dims=ndims(B)+1)
 end
 
 function remove_shock!(parameters, symbol)
