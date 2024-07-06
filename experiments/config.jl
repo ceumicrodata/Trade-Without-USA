@@ -1,7 +1,7 @@
-using Logging
-Logging.configure(level=DEBUG)
+using Logging, Random
+global_logger(ConsoleLogger(stderr, Logging.Debug))
 include("../calibrate_params.jl")
-using CalibrateParameters
+using .CalibrateParameters
 
 if !haskey(parameters, :S)
 	parameters[:S] = 101

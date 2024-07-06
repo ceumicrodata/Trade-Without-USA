@@ -9,7 +9,7 @@ module ImpvolOutput
 	using DataFrames
 	using Logging
 	include("calibration_utils.jl")
-	Logging.configure(level=DEBUG)
+	global_logger(ConsoleLogger(stderr, Logging.Debug))
 
 	function read_results(path = "experiments/baseline/actual/results.jld2")
 		file = jldopen(path, "r")

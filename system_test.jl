@@ -3,7 +3,7 @@ using .ImpvolEquilibrium
 include("calibrate_params.jl")
 using .CalibrateParameters
 using Logging
-Logging.configure(level=INFO)
+global_logger(ConsoleLogger(stderr, Logging.INFO))
 
 function test_data!(parameters, data)
     N, J, T, S = parameters[:N], parameters[:J], parameters[:T], parameters[:S]
@@ -125,7 +125,7 @@ function init_data(parameters)
     return data
 end
 
-srand(7094)
+Random.seed!(7094)
 
 parameters = init_parameters()
 data = init_data(parameters)
