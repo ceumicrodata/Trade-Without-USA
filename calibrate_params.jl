@@ -132,8 +132,8 @@ module CalibrateParameters
 		alpha = zeros(J,T)
 
 		for t in 1:T
-			va_t = transpose(sum(va[1,:,:,t],1))
-			alpha[:,t] = (I .- gamma) * diagm(1 ./ beta[:],0) * va_t / sum(va_t)
+			va_t = transpose(sum(va[1,:,:,t], dims=1))
+			alpha[:,t] = (eye(J) .- gamma) * diagm(1 ./ beta[:]) * va_t / sum(va_t)
 		end
 
 		# Replace negative elements with 0
@@ -143,7 +143,7 @@ module CalibrateParameters
 		alpha_c, alpha_t = DetrendUtilities.detrend(alpha, weights)
 
 		# Normalization
-		alpha = alpha_t ./ sum(alpha_t,1)
+		alpha = alpha_t ./ sum(alpha_t, dims=1)
 
 		return alpha = permutedims(cat(alpha, dims=ndims(alpha) + 2), (3,4,1,2))
 	end
@@ -225,7 +225,7 @@ module CalibrateParameters
 			trend = 0.5*(V_t .- parameters[:one_over_rho])
 			labor_share = trend .+ (trend .^2 .+ parameters[:one_over_rho]*value_added_shares) .^ 0.5
 			wage_ratio = value_added_shares ./ labor_share
-			info("Unweighted wage ratio should be 1: ", mean(wage_ratio))
+			@info("Unweighted wage ratio should be 1: ", mean(wage_ratio))
 		else
 			# if no labor adjustment, the ratio of value added = the ratio of wages
 			wage_ratio = value_added_shares ./ V_t
