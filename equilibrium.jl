@@ -2,7 +2,7 @@ module ImpvolEquilibrium
 
 export period_wrapper, coerce_parameters!, rotate_sectors, CES_price_index, array_transpose, remove_shock!
 
-using Logging, Base.Test
+using Logging
 
 include("utils.jl")
 parameters = Dict{Symbol, Any}()
@@ -390,7 +390,7 @@ function outer_loop!(random_variables, parameters, t, L_nj_star)
 		old_wage_share = L_nj_star ./ sum(L_nj_star, 3)
 		adjustment_loop!(random_variables, L_nj_star, parameters, t)
 		wage_share = expected_wage_share(random_variables)
-		@test sum(wage_share, 3) ≈ ones(1,N,1,1) atol=1e-9
+		@assert sum(wage_share, 3) ≈ ones(1,N,1,1) atol=1e-9
 
 		dist = share_distance(wage_share, old_wage_share)
 		info("-- Outer ", k, ": ", dist)

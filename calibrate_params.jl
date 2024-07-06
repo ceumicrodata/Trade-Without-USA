@@ -249,17 +249,17 @@ module CalibrateParameters
 		nu_US = final_expenditure_shares[:,end:end,:,:] .* p_sectoral_US .^ (sigma-1)
 		nu_US = nu_US ./ sum(nu_US, 3)
 		P_US = CES_price_index(nu_US, p_sectoral_US, sigma)
-		@test p_sectoral_US[1,1,:,1] ≈ ones(J) atol=1e-9
-		@test P_US[1,1,1,1] ≈ 1.0 atol=1e-9
+		@assert p_sectoral_US[1,1,:,1] ≈ ones(J) atol=1e-9
+		@assert P_US[1,1,1,1] ≈ 1.0 atol=1e-9
 
 		# step 2: calculate sectoral prices from market shares relative to US
 		# US is assumed to be chosen as a base country (US = end), else pwt should be used to do the conversion
 		# normalization: p_sectoral[1,end,:,1] = 1.0
 		p_sectoral = array_transpose(exp.( mean(1 / theta * log.(d ./ permutedims(cat(ndims(d),d[end,:,:,:]),[4,1,2,3])) - log.(kappa ./ permutedims(cat(ndims(kappa),kappa[end,:,:,:]),[4,1,2,3])), 2) + repeat(permutedims(cat(ndims(p_sectoral_base),log.(p_sectoral_base[:,end,:,:])), [1,4,2,3]), outer = [size(d,1),1,1,1]) ))
-		@test any(isnan, p_sectoral[:,:,1:end-1,:]) == false
+		@assert any(isnan, p_sectoral[:,:,1:end-1,:]) == false
 		# step 3: calculate tradable nu and infer nontradable nu
 		nu = final_expenditure_shares .* (p_sectoral ./ (data["pwt"] .* P_US)) .^ (sigma-1)
-		@test any(isnan, nu[:,:,1:end-1,:]) == false
+		@assert any(isnan, nu[:,:,1:end-1,:]) == false
 
 		nontradable_nu = 1 .- sum(final_expenditure_shares[:,:,1:end-1,:], 3)
 		# Replace negative elements with second smallest positive
