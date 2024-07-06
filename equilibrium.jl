@@ -34,7 +34,7 @@ function expected_value(y)
 		return y[:,:,:,1]
 	else
 		# ignore first realization of S
-		return mean(y[:,:,:,2:end], 4)
+		return mean(y[:,:,:,2:end], dims=4)
 	end
 end
 
@@ -54,8 +54,8 @@ function rotate_sectors(A, y)
 end
 
 function p_distance(p1, p2, theta)
-	s1 = p1 .^ (-theta) ./ sum(p1 .^ (-theta), 2)
-	s2 = p2 .^ (-theta) ./ sum(p2 .^ (-theta), 2)
+	s1 = p1 .^ (-theta) ./ sum(p1 .^ (-theta), dims=2)
+	s2 = p2 .^ (-theta) ./ sum(p2 .^ (-theta), dims=2)
 	return share_distance(s1, s2)
 end
 
@@ -75,7 +75,7 @@ function free_trade_sector_shares!(parameters)
 	N, J, T = parameters[:N], parameters[:J], parameters[:T]
 	gamma_jk = parameters[:gamma_jk]
 	beta_j = parameters[:beta_j]
-	alpha_jt = parameters[:nu_njt] ./ sum(parameters[:nu_njt], 3)
+	alpha_jt = parameters[:nu_njt] ./ sum(parameters[:nu_njt], dims=3)
 
 	revenue_shares = zeros(1,1,J,T)
 	for t=1:T
@@ -94,7 +94,7 @@ function compute_price!(random_variables, parameters, t)
 	kappa = non_random_variable(parameters[:kappa_mnjt], t)
 	rho_njs = random_variables[:rho_njs]
 
-	random_variables[:P_njs] = array_transpose(sum((rho_njs ./ kappa) .^ (-theta), 2) .^ (-1/theta))
+	random_variables[:P_njs] = array_transpose(sum((rho_njs ./ kappa) .^ (-theta), dims=2) .^ (-1/theta))
 end
 
 function CES_price_index(alpha, P_njs, sigma)
@@ -103,7 +103,7 @@ end
 
 function compute_price_index!(random_variables, parameters, t)
 	nu = non_random_variable(parameters[:nu_njt], t)
-	alpha = nu ./ sum(nu, 3)
+	alpha = nu ./ sum(nu, dims=3)
 	P_njs = random_variables[:P_njs]
 	sigma = parameters[:sigma]
 
@@ -306,7 +306,7 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 
 	function evaluate_utility(random_variables, L_nj_star, parameters, t)
 		random_variables[:L_njs] = max.(parameters[:numerical_zero], random_variables[:L_njs])
-		random_variables[:L_njs] = random_variables[:L_njs] ./ sum(random_variables[:L_njs], 3)
+		random_variables[:L_njs] = random_variables[:L_njs] ./ sum(random_variables[:L_njs], dims=3)
 
 		middle_loop!(random_variables, parameters, t)
 
@@ -323,7 +323,7 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 		gradient = parameters[:one_over_rho]*wage_gap .- (L_njs .- L_nj_star)
 
 		# ensure that steps sum to zero: we can only reallocate labor across sectors
-		return gradient .- mean(gradient, 3)
+		return gradient .- mean(gradient, dims=3)
 	end
 
 	@debug("-- BEGIN Adjustment loop")
@@ -387,10 +387,10 @@ function outer_loop!(random_variables, parameters, t, L_nj_star)
 	k = 1
 
 	while (dist > parameters[:outer_tolerance]) && (k <= parameters[:max_iter_outer])
-		old_wage_share = L_nj_star ./ sum(L_nj_star, 3)
+		old_wage_share = L_nj_star ./ sum(L_nj_star, dims=3)
 		adjustment_loop!(random_variables, L_nj_star, parameters, t)
 		wage_share = expected_wage_share(random_variables)
-		@assert sum(wage_share, 3) ≈ ones(1,N,1,1) atol=1e-9
+		@assert sum(wage_share, dims=3) ≈ ones(1,N,1,1) atol=1e-9
 
 		dist = share_distance(wage_share, old_wage_share)
 		@info("-- Outer ", k, ": ", dist)
