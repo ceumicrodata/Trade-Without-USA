@@ -1,5 +1,5 @@
 include("equilibrium.jl")
-using ImpvolEquilibrium
+using .ImpvolEquilibrium
 include("calibrate_params.jl")
 using .CalibrateParameters
 using Logging

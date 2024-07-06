@@ -2,7 +2,7 @@ fname = ARGS[1]
 
 # load ImpvolEquilibrium first so that methods are accessible
 include("../../equilibrium.jl")
-using ImpvolEquilibrium, Logging
+using .ImpvolEquilibrium, Logging
 Logging.configure(level=INFO)
 
 using FileIO, JLD2

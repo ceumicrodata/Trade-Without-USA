@@ -1,6 +1,6 @@
 # load ImpvolEquilibrium first so that methods are accessible
 @everywhere include("../../../equilibrium.jl")
-@everywhere using ImpvolEquilibrium, Logging
+@everywhere using .ImpvolEquilibrium, Logging
 @everywhere Logging.configure(level=INFO)
 
 @everywhere using FileIO, JLD2
