@@ -7,7 +7,7 @@ TABLES = $(CES) baseline china_1972 no_china no_io_linkages labor_adjustment tra
 .PRECIOUS: $(foreach table,$(TABLES),$(foreach column,$(COLUMNS),experiments/$(table)/$(column)/results.jld2))
 
 # default number of Julia threads to use. otherwise `make tables PROCS=12`
-PROCS = 4
+PROCS = 8
 JULIA = julia --project -p$(PROCS)
 
 tables: $(foreach table,1 2 3 4left 4right 5left 5center 5right 6left 6right 7 8left 8right,output/table$(table).csv) 
