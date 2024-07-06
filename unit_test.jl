@@ -99,7 +99,7 @@ function test_parameters(parameters)
     end
 end
 
-srand(7094)
+Random.seed!(7094)
 
 parameters = init_parameters()
 CalibrateParameters.calibrate_parameters!(parameters, "data/impvol_data.jld2")
