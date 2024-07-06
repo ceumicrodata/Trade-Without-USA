@@ -1,13 +1,13 @@
 module CalibrateParameters
 	include("calibration_utils.jl")
-	using JLD2, FileIO, ImpvolEquilibrium, Base.Test
+	using JLD2, FileIO, ..ImpvolEquilibrium, Statistics
 
 	function calibrate_parameters!(parameters, fname="../../data/impvol_data.jld2")
 		data = load(fname)
 
 		_, N, J, T = size(data["beta"])
 		parameters[:N], parameters[:J], parameters[:T] = N, J, T
-		parameters[:beta_j] = mean(data["beta"],(1,2,4))
+		parameters[:beta_j] = mean(data["beta"]; dims=(1,2,4))
 
 		parameters[:gamma_jk] = compute_gamma(parameters, data)
 
@@ -40,14 +40,14 @@ module CalibrateParameters
 		deflator = CES_price_index(parameters[:nu_njt][:,end:end,:,:], parameters[:p_sectoral][:,end:end,:,:], parameters[:sigma])
 		info(deflator[:])
 
-		parameters[:S_nt_data] = (data["trade_balance"] .- mean(data["trade_balance"],2)) ./ deflator
+		parameters[:S_nt_data] = (data["trade_balance"] .- mean(data["trade_balance"]; dims=2)) ./ deflator
 
 		# global, all-time average of sector final expenditure shares
-		importance_weight = mean(parameters[:nu_njt], (1, 2, 4))
+		importance_weight = mean(parameters[:nu_njt], dims=(1, 2, 4))
 		# special-case CES, when nu does not have direct meaning
 		if abs(parameters[:sigma]-1)>0.1
-			share = data["va"] ./ sum(data["va"], 3)
-			importance_weight = mean(share, (1, 2, 4))
+			share = data["va"] ./ sum(data["va"], dims=3)
+			importance_weight = mean(share, dims=(1, 2, 4))
 		end
 		parameters[:importance_weight] = importance_weight
 		decompose_shocks!(parameters, importance_weight)
@@ -65,19 +65,19 @@ module CalibrateParameters
 
 		# Summing sectors
 		# Agriculture & mining
-		io_values[1,:,:,:]  = sum(io_values[1:2,:,:,:],1)
+		io_values[1,:,:,:]  = sum(io_values[1:2,:,:,:], dims=1)
 		io_values         = io_values[setdiff(1:end,2),:,:,:]
-		io_values[:,1,:,:]  = sum(io_values[:,1:2,:,:],2)
+		io_values[:,1,:,:]  = sum(io_values[:,1:2,:,:], dims=2)
 		io_values         = io_values[:,setdiff(1:end,2),:,:]
-		total_output[:,1,:,:] = sum(total_output[:,1:2,:,:],2)
+		total_output[:,1,:,:] = sum(total_output[:,1:2,:,:], dims=2)
 		total_output      = total_output[:,setdiff(1:end,2),:,:]
 
 		# Services
-		io_values[18,:,:,:]  = sum(io_values[18:end,:,:,:],1)
+		io_values[18,:,:,:]  = sum(io_values[18:end,:,:,:], dims=1)
 		io_values          = io_values[setdiff(1:end,19:end),:,:,:]
-		io_values[:,18,:,:]  = sum(io_values[:,18:end,:,:],2)
+		io_values[:,18,:,:]  = sum(io_values[:,18:end,:,:], dims=2)
 		io_values          = io_values[:,setdiff(1:end,19:end),:,:]
-		total_output[:,18,:,:] = sum(total_output[:,18:end,:,:],2)
+		total_output[:,18,:,:] = sum(total_output[:,18:end,:,:], dims=2)
 		total_output       = total_output[:,setdiff(1:end,19:end),:,:]
 
 		# Split rows
@@ -110,8 +110,8 @@ module CalibrateParameters
 
 		# Compute gamma
 		gamma = io_values_new ./ repeat(total_output, outer = [size(io_values_new,1),1,1,1])
-		gamma = mean(gamma,4)
-		gamma = gamma .* permutedims(1-beta,(1,3,2,4)) ./ sum(gamma,1)
+		gamma = mean(gamma, dims=4)
+		gamma = gamma .* permutedims(1-beta,(1,3,2,4)) ./ sum(gamma, dims=1)
 		return gamma = squeeze(gamma,(3,4))
 	end
 
@@ -139,7 +139,7 @@ module CalibrateParameters
 		# Normalization
 		alpha = alpha_t ./ sum(alpha_t,1)
 
-		return alpha = permutedims(cat(ndims(alpha) + 2,alpha),(3,4,1,2))
+		return alpha = permutedims(cat(ndims(alpha) + 2,alpha), (3,4,1,2))
 	end
 
 	function trade_costs(parameters)
@@ -186,12 +186,12 @@ module CalibrateParameters
 		d = within_import ./ (1 + domestic_per_import)
 
 		for n in 1:N
-			d[n,n,:,:] = ones(J,T) - squeeze(sum(d[n,:,:,:],1),1)
+			d[n,n,:,:] = ones(J,T) - squeeze(sum(d[n,:,:,:], dims=1), 1)
 		end
 
 		d[d .< n_zero] = n_zero
 
-		return d ./ sum(d, 2)
+		return d ./ sum(d, dims=2)
 	end
 
 	function calculate_xi(parameters)
@@ -205,14 +205,14 @@ module CalibrateParameters
 		beta = parameters[:beta_j]
 		gamma = parameters[:gamma_jk]
 
-		gamma = permutedims(cat(ndims(gamma) + 2,gamma),[1,3,2,4])
+		gamma = permutedims(cat(ndims(gamma) + 2,gamma), [1,3,2,4])
 		return B = (beta .^ -beta) .* prod(gamma .^ -gamma, 1)
 	end
 
 	function calculate_nominal_wages(parameters, data)
 		nulla = parameters[:numerical_zero]
 		weights = parameters[:bp_weights]
-		value_added_shares = data["va"] ./ sum(data["va"], 3)
+		value_added_shares = data["va"] ./ sum(data["va"], dims=3)
 		V_c, V_t = DetrendUtilities.detrend(value_added_shares, weights)
 
 		if parameters[:one_over_rho]>0.0
@@ -224,7 +224,7 @@ module CalibrateParameters
 			# if no labor adjustment, the ratio of value added = the ratio of wages
 			wage_ratio = value_added_shares ./ V_t
 		end
-		nominal_GDP = sum(data["va"], 3)
+		nominal_GDP = sum(data["va"], dims=3)
 		return nominal_GDP .* wage_ratio
 	end
 
@@ -255,7 +255,7 @@ module CalibrateParameters
 		# step 2: calculate sectoral prices from market shares relative to US
 		# US is assumed to be chosen as a base country (US = end), else pwt should be used to do the conversion
 		# normalization: p_sectoral[1,end,:,1] = 1.0
-		p_sectoral = array_transpose(exp.( mean(1 / theta * log.(d ./ permutedims(cat(ndims(d),d[end,:,:,:]),[4,1,2,3])) - log.(kappa ./ permutedims(cat(ndims(kappa),kappa[end,:,:,:]),[4,1,2,3])), 2) + repeat(permutedims(cat(ndims(p_sectoral_base),log.(p_sectoral_base[:,end,:,:])), [1,4,2,3]), outer = [size(d,1),1,1,1]) ))
+		p_sectoral = array_transpose(exp.( mean(1 / theta * log.(d ./ permutedims(cat(ndims(d),d[end,:,:,:]),[4,1,2,3])) - log.(kappa ./ permutedims(cat(ndims(kappa),kappa[end,:,:,:]),[4,1,2,3])), dims=2) + repeat(permutedims(cat(ndims(p_sectoral_base),log.(p_sectoral_base[:,end,:,:])), [1,4,2,3]), outer = [size(d,1),1,1,1]) ))
 		@assert any(isnan, p_sectoral[:,:,1:end-1,:]) == false
 		# step 3: calculate tradable nu and infer nontradable nu
 		nu = final_expenditure_shares .* (p_sectoral ./ (data["pwt"] .* P_US)) .^ (sigma-1)
@@ -264,24 +264,24 @@ module CalibrateParameters
 		nontradable_nu = 1 .- sum(final_expenditure_shares[:,:,1:end-1,:], 3)
 		# Replace negative elements with second smallest positive
 		nu[:,:,end:end,:] .= DetrendUtilities.winsorize(nontradable_nu, 1)
-		nu .= nu ./ sum(nu, 3)
+		nu .= nu ./ sum(nu, dims=3)
 
 		# demand shifter only varies across sectors and over time, not across countries
-		parameters[:nu_njt] = sum(country_weights .* nu, (1,2))
+		parameters[:nu_njt] = sum(country_weights .* nu, dims=(1,2))
 
 		# enforce comformity of model with data
 		final_expenditure_shares = parameters[:nu_njt] .* (p_sectoral ./ (data["pwt"] .* P_US)) .^ (1-sigma)
-		nontradable_nu = 1 .- sum(final_expenditure_shares[:,:,1:end-1,:], 3)
+		nontradable_nu = 1 .- sum(final_expenditure_shares[:,:,1:end-1,:], dims=3)
 		# Replace negative elements with second smallest positive
 		final_expenditure_shares[:,:,end:end,:] .= DetrendUtilities.winsorize(nontradable_nu, 1)
-		final_expenditure_shares .= final_expenditure_shares ./ sum(final_expenditure_shares, 3)
+		final_expenditure_shares .= final_expenditure_shares ./ sum(final_expenditure_shares, dims=3)
 
 		# step 4: calculate nontradable prices
 		# NB: DO NOT recalibrate tradable prices, expenditure_shares are very noisy for small sectors
 		if abs(sigma-1)>0.01
 			p_sectoral[:,:,end:end,:] = data["pwt"] .* P_US .* (parameters[:nu_njt][:,:,end:end,:] ./ final_expenditure_shares[:,:,end:end,:]) .^ (1/(sigma-1))
 		else
-			p_sectoral[:,:,end:end,:] = (data["pwt"] .* P_US ./ (prod(p_sectoral[:,:,1:end-1,:] .^ parameters[:nu_njt][:,:,1:end-1,:], 3))) .^ (1 ./ parameters[:nu_njt][:,:,end:end,:])
+			p_sectoral[:,:,end:end,:] = (data["pwt"] .* P_US ./ (prod(p_sectoral[:,:,1:end-1,:] .^ parameters[:nu_njt][:,:,1:end-1,:], dims=3))) .^ (1 ./ parameters[:nu_njt][:,:,end:end,:])
 		end
 		parameters[:p_sectoral] = p_sectoral
 		parameters[:final_expenditure_shares] = final_expenditure_shares
@@ -305,7 +305,7 @@ module CalibrateParameters
 
 		# use eq 15 in algorithm.pdf
 		rho_mnjt = kappa_mnjt .* p_mjt .* d_mnjt .^ (-1/theta)
-		rho_njt = exp.(mean(log.(rho_mnjt),1))
+		rho_njt = exp.(mean(log.(rho_mnjt), dims=1))
 		# nontradable input price equals output price
 		rho_njt[1,:,end,:] = p_njt[1,:,end,:]
 		input_price_index = exp.(rotate_sectors(gamma', log.(p_njt)))
@@ -344,7 +344,7 @@ module CalibrateParameters
 		_, nu_guess = DetrendUtilities.detrend(final_expenditure, weights)
 
 		# Replace negative elements with smallest positive
-		nu_guess .= DetrendUtilities.winsorize(nu_guess ./ sum(nu_guess, 3), 0)
+		nu_guess .= DetrendUtilities.winsorize(nu_guess ./ sum(nu_guess, dims=3), 0)
 		# Smooth the series
 		nu_c, nu_t = DetrendUtilities.detrend(nu_guess, weights)
 
@@ -414,9 +414,9 @@ end
 		weights = parameters[:bp_weights]
 		detrended_log_productivity, parameters[:productivity_trend] = DetrendUtilities.detrend(log.(parameters[:A]), weights)
 
-		global_sectoral_shock = mean(detrended_log_productivity, 2)
+		global_sectoral_shock = mean(detrended_log_productivity, dims=2)
 		# weighted by sector importance, see https://github.com/ceumicrodata/impvol/commit/91d92905678df96d7068b8dd729e6f6d7cf470d8
-		country_shock = sum(sectoral_weights .* (detrended_log_productivity .- global_sectoral_shock), 3) ./ sum(sectoral_weights, 3)
+		country_shock = sum(sectoral_weights .* (detrended_log_productivity .- global_sectoral_shock), dims=3) ./ sum(sectoral_weights, dims=3)
 		idiosyncratic_shock = detrended_log_productivity .- global_sectoral_shock .- country_shock
 
 		parameters[:global_sectoral_shock] = global_sectoral_shock
