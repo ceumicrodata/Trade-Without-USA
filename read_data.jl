@@ -65,31 +65,23 @@ function read_data(relativepath::String, dim_size::NTuple, in_pos::Array{Bool,1}
 
 	# Reshape the data according to dim_size
 	data = reshape(data, dim_size)
+	data = permutedims(data, out_pos)
 
-	# Initialize pos array
-	pos = zeros(Int64, size(in_pos))
-	pos[in_pos] = out_pos
-
-	# Adjust pos array if length(in_pos) is greater than length(dim_size)
-	if length(in_pos) > length(dim_size)
-		pos[.!in_pos] = collect(length(in_pos):-1:(length(dim_size) + 1))
-	end
-
-	# Convert pos to Array{Int64,1}
-	pos = convert(Array{Int64,1}, pos)
-
+	pos = (1:length(in_pos))[in_pos]
 	new_size = [1, 1, 1, 1]
 	for i in 1:length(dim_size)
-		new_size[pos[i]] = dim_size[i]
+		new_size[pos[i]] = dim_size[out_pos[i]]
 	end
 
-	data = permutedims(data, out_pos)
 	data = reshape(data, new_size...)
 
 	if convfloat
 		data = collect(Missings.replace(data,NaN))
 		data = convert(Array{Float64,length(in_pos)},data)
 	end
+
+	@debug "Data read successfully from $relativepath"
+	@debug "Size of data is $(size(data))"
 
 	return data
 end

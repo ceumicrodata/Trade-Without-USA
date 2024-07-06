@@ -34,7 +34,7 @@ module CalibrateParameters
 
 		parameters[:A] = calculate_A(parameters, data)
 
-		# total world expenditure in the data - needed to get reasonable starting values
+		# total world expenditure in the data .- needed to get reasonable starting values
 		parameters[:nominal_world_expenditure] = sum(data["va"] ./ parameters[:beta_j], (1,2,3))
 		# deflate trade imbalance to 1972 dollars
 		deflator = CES_price_index(parameters[:nu_njt][:,end:end,:,:], parameters[:p_sectoral][:,end:end,:,:], parameters[:sigma])
@@ -111,8 +111,8 @@ module CalibrateParameters
 		# Compute gamma
 		gamma = io_values_new ./ repeat(total_output, outer = [size(io_values_new,1),1,1,1])
 		gamma = mean(gamma, dims=4)
-		gamma = gamma .* permutedims(1-beta,(1,3,2,4)) ./ sum(gamma, dims=1)
-		return gamma = squeeze(gamma,(3,4))
+		gamma = gamma .* permutedims(1 .- beta,(1,3,2,4)) ./ sum(gamma, dims=1)
+		return gamma = dropdims(gamma, dims=(3,4))
 	end
 
 	function compute_alpha(parameters, data)
@@ -127,7 +127,7 @@ module CalibrateParameters
 
 		for t in 1:T
 			va_t = transpose(sum(va[1,:,:,t],1))
-			alpha[:,t] = (eye(J) - gamma) * diagm(1 ./ beta[:],0) * va_t / sum(va_t)
+			alpha[:,t] = (eye(J) .- gamma) * diagm(1 ./ beta[:],0) * va_t / sum(va_t)
 		end
 
 		# Replace negative elements with 0
@@ -181,12 +181,12 @@ module CalibrateParameters
 		d = import_shares
 
 		within_import = d ./ sum(d, 2)
-		domestic_per_import = 1 ./ sum(d, 2) - 1
+		domestic_per_import = 1 ./ sum(d, 2) .- 1
 		domestic_per_import[domestic_per_import .< n_zero] = n_zero
 		d = within_import ./ (1 + domestic_per_import)
 
 		for n in 1:N
-			d[n,n,:,:] = ones(J,T) - squeeze(sum(d[n,:,:,:], dims=1), 1)
+			d[n,n,:,:] = ones(J,T) .- dropdims(sum(d[n,:,:,:], dims=1), dims=1)
 		end
 
 		d[d .< n_zero] = n_zero
@@ -198,7 +198,7 @@ module CalibrateParameters
 		theta = parameters[:theta]
 		eta = parameters[:eta]
 
-		return gamma((theta + 1 - eta)/theta)
+		return gamma((theta + 1 .- eta)/theta)
 	end
 
 	function calculate_B(parameters)
@@ -216,7 +216,7 @@ module CalibrateParameters
 		V_c, V_t = DetrendUtilities.detrend(value_added_shares, weights)
 
 		if parameters[:one_over_rho]>0.0
-			trend = 0.5*(V_t - parameters[:one_over_rho])
+			trend = 0.5*(V_t .- parameters[:one_over_rho])
 			labor_share = trend .+ (trend .^2 .+ parameters[:one_over_rho]*value_added_shares) .^ 0.5
 			wage_ratio = value_added_shares ./ labor_share
 			info("Unweighted wage ratio should be 1: ", mean(wage_ratio))
@@ -255,7 +255,7 @@ module CalibrateParameters
 		# step 2: calculate sectoral prices from market shares relative to US
 		# US is assumed to be chosen as a base country (US = end), else pwt should be used to do the conversion
 		# normalization: p_sectoral[1,end,:,1] = 1.0
-		p_sectoral = array_transpose(exp.( mean(1 / theta * log.(d ./ permutedims(cat(ndims(d),d[end,:,:,:]),[4,1,2,3])) - log.(kappa ./ permutedims(cat(ndims(kappa),kappa[end,:,:,:]),[4,1,2,3])), dims=2) + repeat(permutedims(cat(ndims(p_sectoral_base),log.(p_sectoral_base[:,end,:,:])), [1,4,2,3]), outer = [size(d,1),1,1,1]) ))
+		p_sectoral = array_transpose(exp.( mean(1 / theta * log.(d ./ permutedims(cat(ndims(d),d[end,:,:,:]),[4,1,2,3])) .- log.(kappa ./ permutedims(cat(ndims(kappa),kappa[end,:,:,:]),[4,1,2,3])), dims=2) + repeat(permutedims(cat(ndims(p_sectoral_base),log.(p_sectoral_base[:,end,:,:])), [1,4,2,3]), outer = [size(d,1),1,1,1]) ))
 		@assert any(isnan, p_sectoral[:,:,1:end-1,:]) == false
 		# step 3: calculate tradable nu and infer nontradable nu
 		nu = final_expenditure_shares .* (p_sectoral ./ (data["pwt"] .* P_US)) .^ (sigma-1)
@@ -329,7 +329,7 @@ module CalibrateParameters
 		end
 		va = data["va"]
 
-		#beta = squeeze(beta,(1,2,4))
+		#beta = dropdims(beta,(1,2,4))
 		revenue = va ./ beta
 		expenditure = zeros(revenue)
 		for j=1:J
@@ -338,7 +338,7 @@ module CalibrateParameters
 			end
 		end
 		intermediate = rotate_sectors(gamma, revenue)
-		final_expenditure = expenditure - intermediate
+		final_expenditure = expenditure .- intermediate
 
 		# Smooth the series
 		_, nu_guess = DetrendUtilities.detrend(final_expenditure, weights)
@@ -369,7 +369,7 @@ end
 				X = cat(2, ones(T-1), lag[1,n,j,:])
 
 				constant[1,n,j,1], rho[1,n,j,1] = X \ y
-				sigma[1,n,j,1] = std(y - X * [constant[1,n,j,1], rho[1,n,j,1]])
+				sigma[1,n,j,1] = std(y .- X * [constant[1,n,j,1], rho[1,n,j,1]])
 			end
 		end
 
@@ -399,7 +399,7 @@ end
 		draws = Array{Array{Float64, 4}}(T)
 		draws[1] = ImpvolEquilibrium.non_random_variable(data, 1)
 		for t=2:T
-			innovation = sigma .* randn(1,N,J,S - 1)
+			innovation = sigma .* randn(1,N,J,S .- 1)
 			random_realization = ImpvolEquilibrium.non_random_variable(data, t)
 			past_productivity = ImpvolEquilibrium.non_random_variable(data, t-1)
 			# reversion towards mean
