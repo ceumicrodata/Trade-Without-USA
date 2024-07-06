@@ -251,7 +251,7 @@ function starting_values!(random_variables, parameters, t)
 end
 
 function inner_loop!(random_variables, parameters, t)
-	debug("------ BEGIN Inner loop")
+	@debug("------ BEGIN Inner loop")
 	lambda = parameters[:inner_step_size]
 	dist = 999
 	k = 1
@@ -259,7 +259,7 @@ function inner_loop!(random_variables, parameters, t)
 	while (dist > parameters[:inner_tolerance]) && (k <= parameters[:max_iter_inner])
 		new_rho = shadow_price_step(random_variables, parameters, t)
 		dist = p_distance(new_rho, random_variables[:rho_njs], parameters[:theta])
-		debug("-------- Inner ", k, ": ", dist)
+		@debug("-------- Inner ", k, ": ", dist)
 		random_variables[:rho_njs] = new_rho
 		compute_price!(random_variables, parameters, t)
 		compute_wage!(random_variables, parameters)
@@ -271,12 +271,12 @@ function inner_loop!(random_variables, parameters, t)
 
 		k = k+1
 	end
-	warn("inner: ", k-1)
-	debug("------ END Inner loop")
+	@warn("inner: ", k-1)
+	@debug("------ END Inner loop")
 end
 
 function middle_loop!(random_variables, parameters, t)
-	debug("---- BEGIN Middle loop")
+	@debug("---- BEGIN Middle loop")
 	dist = 999
 	k = 1
 	old_expenditure_shares = random_variables[:e_mjs]
@@ -288,12 +288,12 @@ function middle_loop!(random_variables, parameters, t)
 		dist = share_distance(random_variables[:e_mjs][:,:,1:end-1,:], old_expenditure_shares[:,:,1:end-1,:])
 
 		random_variables[:e_mjs] = parameters[:middle_step_size]*random_variables[:e_mjs]+(1-parameters[:middle_step_size])*old_expenditure_shares
-		info("------ Middle ", k, ": ", dist)
+		@info("------ Middle ", k, ": ", dist)
 
 		old_expenditure_shares = random_variables[:e_mjs]
 		k = k+1
 	end
-	debug("---- END Middle loop")
+	@debug("---- END Middle loop")
 end
 
 function adjustment_loop!(random_variables, L_nj_star, parameters, t)
@@ -326,7 +326,7 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 		return gradient .- mean(gradient, 3)
 	end
 
-	debug("-- BEGIN Adjustment loop")
+	@debug("-- BEGIN Adjustment loop")
 	random_variables[:L_njs] = L_nj_star
 	free_trade_labor_shares!(random_variables, parameters, t)
 	L_njs_free = random_variables[:L_njs_free]
@@ -337,7 +337,7 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 	utility = evaluate_utility(random_variables, L_nj_star, parameters, t)
 	gradient = calculate_derivative(random_variables, L_nj_star, parameters)
 	dist = mean(gradient .^ 2) .^ 0.5
-	info("Starting from $dist")
+	@info("Starting from $dist")
 
 	while (dist > parameters[:adjustment_tolerance]) && (k <= parameters[:max_iter_adjustment])
 		snapshot = copy(random_variables)
@@ -354,15 +354,15 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 
 		difference = utility - previous_utility
 		proportional_increase = difference / sum(gradient .^ 2 .* step_size)
-		debug("Difference: ", difference)
-		debug("Proportional increase: ", proportional_increase)
+		@debug("Difference: ", difference)
+		@debug("Proportional increase: ", proportional_increase)
 
-		info("---- Adjustment $k: $dist")
+		@info("---- Adjustment $k: $dist")
 
 		k = k+1
 		random_variables = snapshot
 	end
-	debug("-- END Adjustment loop")
+	@debug("-- END Adjustment loop")
 end
 
 function expected_wage_share(random_variables)
@@ -380,7 +380,7 @@ function outer_loop!(random_variables, parameters, t, L_nj_star)
 	lambda = parameters[:outer_step_size]
 	random_variables[:L_njs] = copy(L_nj_star)
 
-	info("BEGIN Outer loop")
+	@info("BEGIN Outer loop")
 	starting_values!(random_variables, parameters, t)
 
 	dist = 999
@@ -393,19 +393,19 @@ function outer_loop!(random_variables, parameters, t, L_nj_star)
 		@assert sum(wage_share, 3) ≈ ones(1,N,1,1) atol=1e-9
 
 		dist = share_distance(wage_share, old_wage_share)
-		info("-- Outer ", k, ": ", dist)
+		@info("-- Outer ", k, ": ", dist)
 
 		L_nj_star = (1-lambda)*old_wage_share .+ lambda*wage_share
 		k = k+1
 	end
-	info("END Outer loop")
+	@info("END Outer loop")
 	return L_nj_star
 end
 
 function period_wrapper(parameters, t)
 	N, J = parameters[:N], parameters[:J]
 
-	info("--- Period ", t, " ---")
+	@info("--- Period ", t, " ---")
 	A_njs = parameters[:A_njs][t]
 	random_variables = Dict{Symbol, Any}()
 	random_variables[:A_njs] = A_njs

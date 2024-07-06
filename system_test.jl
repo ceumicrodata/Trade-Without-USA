@@ -3,7 +3,7 @@ using .ImpvolEquilibrium
 include("calibrate_params.jl")
 using .CalibrateParameters
 using Logging
-global_logger(ConsoleLogger(stderr, Logging.INFO))
+global_logger(ConsoleLogger(stderr, Logging.Info))
 
 function test_data!(parameters, data)
     N, J, T, S = parameters[:N], parameters[:J], parameters[:T], parameters[:S]
@@ -58,7 +58,7 @@ function test_data!(parameters, data)
     @assert size(parameters[:A]) == (1, N, J, T)
     display(parameters[:A][1,:,:,1])
 
-    info("US wage rate: ", sum(data["va"], 3)[1,end,1,1])
+    @info("US wage rate: ", sum(data["va"], 3)[1,end,1,1])
 
     # total world expenditure in the data - needed to get reasonable starting values
     parameters[:nominal_world_expenditure] = sum(data["va"] ./ parameters[:beta_j], (1,2,3))
