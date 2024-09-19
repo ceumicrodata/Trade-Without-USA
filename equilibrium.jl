@@ -302,7 +302,7 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 		nulla = parameters[:numerical_zero]
 		negative_entries = min.(direction, -nulla)
 		step_sizes = nulla .- x0 ./ negative_entries
-        return minimum([minimum(step_sizes), 3])
+        return minimum(step_sizes, dims=3)
 	end
 
 	function evaluate_utility(random_variables, L_nj_star, parameters, t)
