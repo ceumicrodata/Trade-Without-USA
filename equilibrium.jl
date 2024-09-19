@@ -301,7 +301,8 @@ function adjustment_loop!(random_variables, L_nj_star, parameters, t)
 	function max_step_size(x0, direction)
 		nulla = parameters[:numerical_zero]
 		negative_entries = min.(direction, -nulla)
-		return minimum(nulla .- x0 ./ negative_entries, 3)
+		step_sizes = nulla .- x0 ./ negative_entries
+        return minimum([minimum(step_sizes), 3])
 	end
 
 	function evaluate_utility(random_variables, L_nj_star, parameters, t)
@@ -426,3 +427,4 @@ function period_wrapper(parameters, t)
 end
 
 end
+
