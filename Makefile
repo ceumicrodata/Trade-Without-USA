@@ -53,7 +53,7 @@ install: install.jl
 # copy tables to match the order in the paper
 output/table1.csv: experiments/baseline/output_table.csv
 	cp $< $@
-	cp $@ output/6503.csv
+	cp $@ output/5695.csv
 output/table2.csv: output/volatility_by_decade.csv
 	cp $< $@
 output/table3.csv: experiments/trade_imbalance/output_table.csv
