@@ -32,17 +32,23 @@ end
 stats(A) = [mean(A, dims=2) std(A, dims=2)]
 
 function main()
+    published = readfile("table1-published")
     dfs = readfile.(seeds)
     trade_barriers = extract(dfs, :trade_barriers) |> stats
     diversification = extract(dfs, :diversification) |> stats
 
-    df = DataFrame(country=dfs[1].country_names, 
+    df = DataFrame(country_names=dfs[1].country_names, 
         trade_barriers_mean=trade_barriers[:, 1], 
         trade_barriers_se=trade_barriers[:, 2],
         diversification_mean=diversification[:, 1], 
         diversification_se=diversification[:, 2],
     )
-    CSV.write("output/sterr.csv", df)
+    a = innerjoin(df, 
+        published[!, [:country_names, :trade_barriers, :diversification]], 
+        on=:country_names)
+    a[!, "trade_barriers_z"] = (a.trade_barriers .- a.trade_barriers_mean) ./ a.trade_barriers_se
+    a[!, "diversification_z"] = (a.diversification .- a.diversification_mean) ./ a.diversification_se 
+    CSV.write("output/sterr.csv", a)
 end
 
 main()
