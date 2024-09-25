@@ -1,5 +1,4 @@
-JULIA_DIR := /srv/sandbox/koren/julia-9d11f62bcb
-JULIA := $(JULIA_DIR)/bin/julia
+JULIA := julia
 
 .PHONY: data install tables template calibrate
 CALIBRATION = calibrate_params.jl calibration_utils.jl experiments/config.jl data/impvol_data.jld2
@@ -10,7 +9,7 @@ TABLES = $(CES) baseline china_1972 no_china no_io_linkages labor_adjustment tra
 .PRECIOUS: $(foreach table,$(TABLES),$(foreach column,$(COLUMNS),experiments/$(table)/$(column)/results.jld2))
 
 # default number of $(JULIA) threads to use. otherwise `make tables PROCS=12`
-PROCS = 20
+PROCS = 12
 
 tables: $(foreach table,1 2 3 4left 4right 5left 5center 5right 6left 6right 7 8left 8right,output/table$(table).csv) 
 ces_tables: $(foreach table,$(CES),experiments/$(table)/output_table.csv) experiments/baseline/output_table.csv 
