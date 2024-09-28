@@ -266,8 +266,8 @@ module CalibrateParameters
 		kappa_permuted = permutedims(cat(kappa[end, :, :, :], dims=ndims(kappa)), [4, 1, 2, 3])
 
 		# Compute the mean after performing element-wise operations
-		log_term = log.(d ./ d_permuted) .- log.(kappa ./ kappa_permuted)
-		mean_log_term = mean(1 / theta * log_term, dims=2)
+		log_term = 1 / theta * log.(d ./ d_permuted) .- log.(kappa ./ kappa_permuted)
+		mean_log_term = mean(log_term, dims=2)
 
 		# Permute the dimensions of the log-transformed p_sectoral_base and repeat it
 		p_sectoral_base_permuted = permutedims(cat(log.(p_sectoral_base[:, end, :, :]), dims=ndims(p_sectoral_base)), [1, 4, 2, 3])
