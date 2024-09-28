@@ -10,7 +10,8 @@ foreach X in trade_barriers diversification {
 
     // Generate the graph
     twoway (scatter `X'_mean `X', mcolor(blue) msymbol(o)) ///
-        (rcap upper_ci lower_ci `X', color(blue)), ///
+        (rcap upper_ci lower_ci `X', color(blue)) ///
+        (line `X' `X', sort color(red)), ///
         legend(off) ///
         xtitle("Published version") ///
         ytitle("Julia 1.10 version") ///
