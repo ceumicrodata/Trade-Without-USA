@@ -8,11 +8,6 @@ seeds = [
     6503
     5695
     1499
-    5199
-    6177
-    5469
-    6494
-    2432    
 ]
 
 function readfile(seed)
