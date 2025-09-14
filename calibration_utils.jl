@@ -27,6 +27,19 @@ module DetrendUtilities
 			X = reshape(X, (I*J*K, S))
 		end
 
+		# Special case: if S=1 (single time period), no detrending needed
+		if S == 1
+			# Return the original data as trend
+			cycle = zeros(size(X))
+			if dims == 4
+				cycle_reshaped = reshape(cycle, (I, J, K, S))
+				X_reshaped = reshape(X, (I, J, K, S))
+				return cycle_reshaped, X_reshaped  # Both X_c and X_t are the same
+			else
+				return reshape(cycle, (I, S)), reshape(X, (I, S))
+			end
+		end
+
 		X_c = zeros(I*J*K,S)
 		X_t = zeros(I*J*K,S)
 
