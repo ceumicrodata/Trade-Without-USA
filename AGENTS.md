@@ -40,12 +40,12 @@
 - **Makefile update**: Simplify targets to focus on single experiment output
 
 ### 4. No-USA Counterfactual Setup
-- **Modify target country**: Change from China (index 5) to USA (index 1)
+- **Modify target country**: Change from China (index 5) to USA (index 25)
 - **Set trade barriers**: In `experiments/no_usa/init_parameters.jl`:
   ```julia
-  parameters[:kappa_mnjt][1,:,:,:] = ones(size(parameters[:kappa_mnjt][1,:,:,:])) ./ 100000
-  parameters[:kappa_mnjt][:,1,:,:] = ones(size(parameters[:kappa_mnjt][:,1,:,:])) ./ 100000
-  parameters[:kappa_mnjt][1,1,:,:] = ones(size(parameters[:kappa_mnjt][1,1,:,:]))
+  parameters[:kappa_mnjt][25,:,:,:] = ones(size(parameters[:kappa_mnjt][25,:,:,:])) ./ 100000
+  parameters[:kappa_mnjt][:,25,:,:] = ones(size(parameters[:kappa_mnjt][:,25,:,:])) ./ 100000
+  parameters[:kappa_mnjt][25,25,:,:] = ones(size(parameters[:kappa_mnjt][25,25,:,:]))
   ```
 - **Rename experiment**: Change directory from `no_china` to `no_usa`
-- **Note**: USA is country index 1 in the data structure
+- **Note**: USA is country index 25 in the data structure (last country in the list)
