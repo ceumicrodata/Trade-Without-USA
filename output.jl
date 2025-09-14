@@ -141,17 +141,32 @@ module ImpvolOutput
 			gdp_country = sum(gdp_series[1, :, :], dims=2)[:]  # sum over sectors j for each country n
 
 			# Compute exports and imports from E_mjs (expenditures)
-			E = make_series(results, :E_mjs)  # (M,N,J) where M=importers, N=exporters
+			E = make_series(results, :E_mjs)  # (M,1,J) where M=importers, N=exporters
+			D = make_series(results, :d_mnjs)  # (M,N,J) where M=importers, N=exporters, J=sectors, import shares
+			# exclucde own country from imports
+			for n = 1:parameters[:N]
+				D[n, n, :] .= 0.0
+			end
 			# FIXME: no, E is expenditure, we have to compute exports and imports from that
-			# E_mjs is expenditure by importer m on goods from exporter n in sector j
+			imports_country = sum(E .* D, dims=(2,3))[:]  # sum over sectors j and exporters n for each importer m
+			exports_country = sum(E .* D, dims=(1,3))[:]  #
 
 			# Assign to appropriate columns
 			if col == "actual"
 				stats[!, :gdp_actual] = gdp_country
+				stats[!, :exports_actual] = exports_country
+				stats[!, :imports_actual] = imports_country
 			elseif col == "no_usa"
 				stats[!, :gdp_no_usa] = gdp_country
+				stats[!, :exports_no_usa] = exports_country
+				stats[!, :imports_no_usa] = imports_country
 			end
 		end
+
+		# compute percentage change relative to actual
+		stats[!, :gdp_pct_change] = 100 * (stats.gdp_no_usa .- stats.gdp_actual) ./ stats.gdp_actual
+		stats[!, :exports_pct_change] = 100 * (stats.exports_no_usa .- stats.exports_actual) ./ stats.exports_actual
+		stats[!, :imports_pct_change] = 100 * (stats.imports_no_usa .- stats.imports_actual) ./ stats.imports_actual
 
 		@debug stats
 
