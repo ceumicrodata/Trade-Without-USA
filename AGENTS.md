@@ -19,3 +19,33 @@
 - **Data formats**: CSV for tabular data, JLD2 for Julia objects, avoid hardcoded parameters
 - **Documentation**: Keep functions focused with single responsibility, comment complex algorithms
 - **Testing**: Place tests in separate files (unit_test.jl, system_test.jl)
+
+## Model Adaptation for Trade-Without-USA Analysis
+
+### 1. Time Period Modification
+- **Limit data to 2003-2007**: Filter time dimension to years 2003-2007 only
+- **Create cross-section**: Average across these 5 years to obtain a single cross-sectional dataset
+- **Implementation**: Modify data loading in `read_data.jl` to filter and average time periods
+
+### 2. Static Model Configuration
+- **Disable random shocks**: Set `S=1` (single state) to eliminate stochastic elements
+- **Remove adjustment costs**: Set `one_over_rho = Inf` (or very large number) for instant adjustment
+- **Simplify equilibrium**: Focus on static equilibrium without forward-looking expectations
+- **Implementation**: Modify parameters in experiment init files to enforce static behavior
+
+### 3. Experiment Simplification
+- **Keep only baseline experiment**: Retain `experiments/baseline/` directory
+- **Remove other experiments**: Delete CES variants, theta variants, rho variants, etc.
+- **Maintain two scenarios**: Keep only `actual` and modified counterfactual scenarios
+- **Makefile update**: Simplify targets to focus on single experiment output
+
+### 4. No-USA Counterfactual Setup
+- **Modify target country**: Change from China (index 5) to USA (index 1)
+- **Set trade barriers**: In `experiments/no_usa/init_parameters.jl`:
+  ```julia
+  parameters[:kappa_mnjt][1,:,:,:] = ones(size(parameters[:kappa_mnjt][1,:,:,:])) ./ 100000
+  parameters[:kappa_mnjt][:,1,:,:] = ones(size(parameters[:kappa_mnjt][:,1,:,:])) ./ 100000
+  parameters[:kappa_mnjt][1,1,:,:] = ones(size(parameters[:kappa_mnjt][1,1,:,:]))
+  ```
+- **Rename experiment**: Change directory from `no_china` to `no_usa`
+- **Note**: USA is country index 1 in the data structure
