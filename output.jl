@@ -142,19 +142,14 @@ module ImpvolOutput
 
 			# Compute exports and imports from E_mjs (expenditures)
 			E = make_series(results, :E_mjs)  # (M,N,J) where M=importers, N=exporters
-			# FIXME: Check if sums are correct
-			imports_m = sum(E, dims=(2,3))[:]  # sum over exporters n and sectors j for each importer m
-			exports_n = sum(E, dims=(1,3))[:]  # sum over importers m and sectors j for each exporter n
+			# FIXME: no, E is expenditure, we have to compute exports and imports from that
+			# E_mjs is expenditure by importer m on goods from exporter n in sector j
 
 			# Assign to appropriate columns
 			if col == "actual"
 				stats[!, :gdp_actual] = gdp_country
-				stats[!, :exports_actual] = exports_n
-				stats[!, :imports_actual] = imports_m
 			elseif col == "no_usa"
 				stats[!, :gdp_no_usa] = gdp_country
-				stats[!, :exports_no_usa] = exports_n
-				stats[!, :imports_no_usa] = imports_m
 			end
 		end
 
