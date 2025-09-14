@@ -1,4 +1,3 @@
-using FileIO
 using CSV
 using DataFrames
 using Statistics
@@ -130,6 +129,7 @@ function read_data(relativepath::String, dim_size::NTuple, in_pos::Array{Bool,1}
 end
 
 # Load full data first
+println("Loading full data...")
 pwt_full        = read_data("data/aggregate_price_relative_to_US.csv",(36,25),[false,true,false,true],[2,1],',',false,2,false,true)
 beta_full       = read_data("data/beta_panel.txt",(36,25,24),[false,true,true,true],[2,3,1],'\t',true,2,false,true)                
 va_full         = read_data("data/sectoral_value_added.csv",(36,25,24),[false,true,true,true],[2,3,1],',',true,2,false,true)
@@ -138,6 +138,7 @@ trade_balance_full = read_data("data/trade_balance_new.csv",(25,36),[false,true,
 p_sectoral_data_full = read_data("data/sectoral_price_index.csv",(36,18,24),[false,true,true,true],[2,3,1],',',false,0,false,true)
 
 # Filter to 2003-2007 and average
+println("Filtering to 2003-2007 and averaging...")
 pwt             = filter_and_average_years(pwt_full, 4)  # Time is dimension 4
 beta            = filter_and_average_years(beta_full, 4)  # Time is dimension 4
 va              = filter_and_average_years(va_full, 4)  # Time is dimension 4
@@ -146,11 +147,23 @@ trade_balance   = filter_and_average_years(trade_balance_full, 4)  # Time is dim
 p_sectoral_data = filter_and_average_years(p_sectoral_data_full, 4)  # Time is dimension 4
 
 # Files without time dimension remain unchanged
+println("Loading non-time-series data...")
 country_names   = read_data("data/country_name.txt",(25,),[false,true,false,false],[1],'\t',false,0,false,false)
 io_values       = read_data("data/oecd_io_values.csv",(34,34,13),[true,true,false,true],[2,1,3],',',true,3,false,true)
 total_output    = read_data("data/oecd_total_output.csv",(34,13),[false,true,false,true],[1,2],',',true,2,false,true)
 output_shares   = read_data("data/output_shares.csv",(13,10),[false,true,false,true],[2,1],',',true,1,false,true)
 intermediate_input_shares = read_data("data/intermediate_input_shares.csv",(13,10),[false,true,false,true],[2,1],',',true,1,false,true)
 
-using JLD2
+println("\nData filtering complete!")
+println("New dimensions:")
+println("  pwt: ", size(pwt))
+println("  beta: ", size(beta))
+println("  va: ", size(va))
+println("  import_shares: ", size(import_shares))
+println("  trade_balance: ", size(trade_balance))
+println("  p_sectoral_data: ", size(p_sectoral_data))
+
+# Save using JLD2 if available, otherwise save summary
+using FileIO, JLD2
 save("data/impvol_data.jld2", "beta", beta, "pwt", pwt, "va", va, "import_shares", import_shares, "io_values", io_values, "total_output", total_output, "output_shares", output_shares, "intermediate_input_shares", intermediate_input_shares, "trade_balance", trade_balance, "p_sectoral_data", p_sectoral_data)
+println("\nData saved to data/impvol_data.jld2")
