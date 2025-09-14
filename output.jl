@@ -161,12 +161,20 @@ module ImpvolOutput
 				stats[!, :exports_no_usa] = exports_country
 				stats[!, :imports_no_usa] = imports_country
 			end
+			# round all variables to integer
+			stats[!, :gdp_actual] = round.(stats.gdp_actual)
+			stats[!, :gdp_no_usa] = round.(stats.gdp_no_usa)
+			stats[!, :exports_actual] = round.(stats.exports_actual)
+			stats[!, :exports_no_usa] = round.(stats.exports_no_usa)
+			stats[!, :imports_actual] = round.(stats.imports_actual)
+			stats[!, :imports_no_usa] = round.(stats.imports_no_usa)			
 		end
 
 		# compute percentage change relative to actual
-		stats[!, :gdp_pct_change] = 100 * (stats.gdp_no_usa .- stats.gdp_actual) ./ stats.gdp_actual
-		stats[!, :exports_pct_change] = 100 * (stats.exports_no_usa .- stats.exports_actual) ./ stats.exports_actual
-		stats[!, :imports_pct_change] = 100 * (stats.imports_no_usa .- stats.imports_actual) ./ stats.imports_actual
+		# round to 1 decimal place
+		stats[!, :gdp_pct_change] = round.(100 * (stats.gdp_no_usa .- stats.gdp_actual) ./ stats.gdp_actual, digits=1)
+		stats[!, :exports_pct_change] = round.(100 * (stats.exports_no_usa .- stats.exports_actual) ./ stats.exports_actual, digits=1)
+		stats[!, :imports_pct_change] = round.(100 * (stats.imports_no_usa .- stats.imports_actual) ./ stats.imports_actual, digits=1)
 
 		@debug stats
 
