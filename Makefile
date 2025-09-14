@@ -7,7 +7,7 @@ TABLES = baseline
 .PRECIOUS: $(foreach table,$(TABLES),$(foreach column,$(COLUMNS),experiments/$(table)/$(column)/results.jld2))
 
 # default number of Julia threads to use. otherwise `make tables PROCS=12`
-PROCS = 8
+PROCS = 1
 JULIA = julia +1.10 --project -p$(PROCS)
 
 tables: experiments/baseline/output_table.csv

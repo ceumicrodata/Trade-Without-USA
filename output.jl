@@ -18,10 +18,6 @@ module ImpvolOutput
 		return file["results"]
 	end
 
-	function sort_results(results)
-		return sort(collect(results), by = x -> x[1])
-	end
-
 	function list_keys(results)
 		for (key, value) in results[1][2]
 			println(key)
@@ -29,12 +25,8 @@ module ImpvolOutput
 	end
 
 	function make_series(results, key = :real_GDP)
-		series = zeros(size(results[1][2][key])[1], size(results[1][2][key])[2], size(results[1][2][key])[3], length(results))
-		for t in 1:length(results)
-			# Only the first element in the shock dimension is interesting, the rest are there only for optimizaton purposes used in the algorithm
-			series[:,:,:,t] = results[t][2][key][:,:,:,1]
-		end
-		return series
+		# Only the first element in the shock dimension is interesting, the rest are there only for optimizaton purposes used in the algorithm
+		return results[key][:,:,:,1]
 	end
 
 	function calculate_volatilities(x, parameters, bool_detrend::Bool, range=:)
@@ -141,36 +133,28 @@ module ImpvolOutput
 		println("Dimensions of stats: ", size(stats))
 
 		# Fill 'stats' DataFrame with cross-sectional moments
-		for (root, dirs, files) in walkdir(dirname(rootpath))
-			dir_depth = length(collect(eachmatch(r"/", root))) - 1
+		for col in ["actual", "no_usa"]
+			results = read_results(joinpath(rootpath, col, "results.jld2"))
 
-			if dir_depth == dirsdown
-				for file in files
-					if occursin(pattern, file)
-						results = sort_results(read_results(joinpath(root, file)))
-						scenario_name = Symbol(SubString(root, findall(x -> x == '/', root)[end] + 1, length(root)))
+			# Compute GDP by country (sum over sectors)
+			gdp_series = make_series(results, :real_GDP)  # (1,N,J,S)
+			gdp_country = sum(gdp_series[1, :, :], dims=2)[:]  # sum over sectors j for each country n
 
-						# Compute GDP by country (sum over sectors)
-						gdp_series = make_series(results, :real_GDP)  # (1,N,J,1)
-						gdp_country = vec(dropdims(sum(gdp_series[1, :, :, 1], dims=2), dims=2))  # size N
+			# Compute exports and imports from E_mjs (expenditures)
+			E = make_series(results, :E_mjs)  # (M,N,J) where M=importers, N=exporters
+			# FIXME: Check if sums are correct
+			imports_m = sum(E, dims=(2,3))[:]  # sum over exporters n and sectors j for each importer m
+			exports_n = sum(E, dims=(1,3))[:]  # sum over importers m and sectors j for each exporter n
 
-						# Compute exports and imports from E_mjs (expenditures)
-						E = make_series(results, :E_mjs)  # (M,N,J,1) where M=importers, N=exporters
-						imports_m = vec(dropdims(sum(E[:, :, :, 1], dims=(2,3)), dims=(2,3)))  # sum over exporters n and sectors j for each importer m
-						exports_n = vec(dropdims(sum(E[:, :, :, 1], dims=(1,3)), dims=(1,3)))  # sum over importers m and sectors j for each exporter n
-
-						# Assign to appropriate columns
-						if scenario_name == :actual
-							stats[!, :gdp_actual] = gdp_country
-							stats[!, :exports_actual] = exports_n
-							stats[!, :imports_actual] = imports_m
-						elseif scenario_name == :no_usa
-							stats[!, :gdp_no_usa] = gdp_country
-							stats[!, :exports_no_usa] = exports_n
-							stats[!, :imports_no_usa] = imports_m
-						end
-					end
-				end
+			# Assign to appropriate columns
+			if col == "actual"
+				stats[!, :gdp_actual] = gdp_country
+				stats[!, :exports_actual] = exports_n
+				stats[!, :imports_actual] = imports_m
+			elseif col == "no_usa"
+				stats[!, :gdp_no_usa] = gdp_country
+				stats[!, :exports_no_usa] = exports_n
+				stats[!, :imports_no_usa] = imports_m
 			end
 		end
 
@@ -180,47 +164,6 @@ module ImpvolOutput
 	end
 	
 
-#= 
-	function write_results(parameters, rootpath = "experiments/baseline/", key = :real_GDP, bool_detrend = true, dirsdown = 1, pattern = r"jld2$")
-		# Volatility of the desired variable found in the last folders of depth 'dirsdown' from the 'rootpath' is calculated by this function
-
-		# Create 'stats' array to store volatilities
-		stats = DataFrame([String, Real, Real, Real, Real, Real, Real, Real, Real, Real], [:country_names, :actual, :kappa1972, :nosectoral, :nosectoral_kappa1972, :onlyglobal, :onlyglobal_kappa1972, :trade_barriers, :diversification, :specialization], 25)
-		println("Dimensions of stats: ", size(stats))
-		stats[:country_names] = CSV.read("data/country_name.txt", header = false, types = [String], nullable=false)[1]
-
-		# Fill 'stats' array
-		for (root, dirs, files) in walkdir(dirname(rootpath))
-			dir_depth = length(matchall(r"/", root)) - 1
-
-			if dir_depth == dirsdown
-
-				for file in files
-					if ismatch(pattern, file)
-						sectoral_series = make_series(sort_results(read_results(joinpath(root, file))), key)
-
-						# Summation over the sectors
-						series = cat(ndims(sectoral_series), sum(sectoral_series, 3))
-						stats[eval(parse(":" * SubString(root,findin(root,'/')[end] + 1, length(root))))] = squeeze(calculate_volatilities(series, parameters, bool_detrend), (1,3,4))
-					end
-				end
-			end
-		end
-
-		Logging.debug(stats)
-
-		# Trade barriers
-		stats[:trade_barriers] = 100 * (stats[:actual] - stats[:kappa1972]) ./ stats[:kappa1972]
-
-		# Diversification
-		stats[:diversification] = 100 * (stats[:nosectoral] - stats[:nosectoral_kappa1972]) ./ stats[:kappa1972]
-
-		# Specialization
-		stats[:specialization] = 100 * (stats[:actual] - stats[:kappa1972] - stats[:nosectoral] + stats[:nosectoral_kappa1972]) ./ stats[:kappa1972]
-
-		CSV.write(rootpath * "/output_table.csv", stats)
-	end
- =#
 	################ Running the 'write_results' function ################
 	# include("output.jl")
 	# parameters = Dict{Symbol, Any}()

@@ -9,5 +9,5 @@
 # parameters that govern counterfactual
 @everywhere include("change_parameters.jl")
 
-@time results = pmap(t -> (t, ImpvolEquilibrium.period_wrapper(parameters, t)), 1:parameters[:T])
+@time results = ImpvolEquilibrium.period_wrapper(parameters, 1)
 include("../../../save.jl")
