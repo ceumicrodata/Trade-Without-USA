@@ -1,5 +1,5 @@
-Pkg.add("JLD2")
-Pkg.add("CSV")
+using Pkg; Pkg.add("JLD2")
+using Pkg; Pkg.add("CSV")
 Pkg.add("DataFrames")
 Pkg.add("Plots")
 Pkg.add("Missings")
