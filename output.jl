@@ -123,57 +123,59 @@ module ImpvolOutput
 
 
 	function write_results(parameters, rootpath = "experiments/baseline/", key = :real_GDP, bool_detrend = true, dirsdown = 1, pattern = r"jld2$")
-		# Volatility of the desired variable found in the last folders of depth 'dirsdown' from the 'rootpath' is calculated by this function
+		# Cross-sectional moments at t=1 for each scenario
 		# Read country names
 		country_names = CSV.read("data/country_name.txt", DataFrame; header = false, types = [String])
 		println("Dimensions of country_names: ", size(country_names))
-	
-		# Create 'stats' DataFrame to store volatilities with the correct number of rows
-		
+
+		# Create 'stats' DataFrame with new schema for cross-sectional moments
 		stats = DataFrame(
 			country_names = country_names[!, 1],
-			actual = Vector{Float64}(undef, size(country_names, 1)),
-			kappa1972 = Vector{Float64}(undef, size(country_names, 1)),
-			nosectoral = Vector{Float64}(undef, size(country_names, 1)),
-			nosectoral_kappa1972 = Vector{Float64}(undef, size(country_names, 1)),
-			onlyglobal = Vector{Float64}(undef, size(country_names, 1)),
-			onlyglobal_kappa1972 = Vector{Float64}(undef, size(country_names, 1)),
-			trade_barriers = Vector{Float64}(undef, size(country_names, 1)),
-			diversification = Vector{Float64}(undef, size(country_names, 1)),
-			specialization = Vector{Float64}(undef, size(country_names, 1))
+			gdp_actual = Vector{Float64}(undef, size(country_names, 1)),
+			gdp_no_usa = Vector{Float64}(undef, size(country_names, 1)),
+			exports_actual = Vector{Float64}(undef, size(country_names, 1)),
+			exports_no_usa = Vector{Float64}(undef, size(country_names, 1)),
+			imports_actual = Vector{Float64}(undef, size(country_names, 1)),
+			imports_no_usa = Vector{Float64}(undef, size(country_names, 1))
 		)
 		println("Dimensions of stats: ", size(stats))
-	
-	
-		# Fill 'stats' DataFrame
+
+		# Fill 'stats' DataFrame with cross-sectional moments
 		for (root, dirs, files) in walkdir(dirname(rootpath))
-			dir_depth = length(collect(eachmatch(r"/", root))) - 1 #count(x -> x == '/', root) - 1 
-	
+			dir_depth = length(collect(eachmatch(r"/", root))) - 1
+
 			if dir_depth == dirsdown
 				for file in files
 					if occursin(pattern, file)
-						sectoral_series = make_series(sort_results(read_results(joinpath(root, file))), key)
+						results = sort_results(read_results(joinpath(root, file)))
+						scenario_name = Symbol(SubString(root, findall(x -> x == '/', root)[end] + 1, length(root)))
 
-						# Summation over the sectors
-						series = cat(dims=ndims(sectoral_series), sum(sectoral_series, dims=3))
-						symbol_name = Symbol(SubString(root, findall(x -> x == '/', root)[end] + 1, length(root)))
-						stats[!,symbol_name] = dropdims(calculate_volatilities(series, parameters, bool_detrend), dims=(1,3,4))
+						# Compute GDP by country (sum over sectors)
+						gdp_series = make_series(results, :real_GDP)  # (1,N,J,1)
+						gdp_country = vec(dropdims(sum(gdp_series[1, :, :, 1], dims=2), dims=2))  # size N
+
+						# Compute exports and imports from E_mjs (expenditures)
+						E = make_series(results, :E_mjs)  # (M,N,J,1) where M=importers, N=exporters
+						imports_m = vec(dropdims(sum(E[:, :, :, 1], dims=(2,3)), dims=(2,3)))  # sum over exporters n and sectors j for each importer m
+						exports_n = vec(dropdims(sum(E[:, :, :, 1], dims=(1,3)), dims=(1,3)))  # sum over importers m and sectors j for each exporter n
+
+						# Assign to appropriate columns
+						if scenario_name == :actual
+							stats[!, :gdp_actual] = gdp_country
+							stats[!, :exports_actual] = exports_n
+							stats[!, :imports_actual] = imports_m
+						elseif scenario_name == :no_usa
+							stats[!, :gdp_no_usa] = gdp_country
+							stats[!, :exports_no_usa] = exports_n
+							stats[!, :imports_no_usa] = imports_m
+						end
 					end
 				end
 			end
 		end
-	
+
 		@debug stats
-	
-		# Trade barriers
-		stats.trade_barriers = 100 * (stats.actual .- stats.kappa1972) ./ stats.kappa1972
-	
-		# Diversification
-		stats.diversification = 100 * (stats.nosectoral .- stats.nosectoral_kappa1972) ./ stats.kappa1972
-	
-		# Specialization
-		stats.specialization = 100 * (stats.actual .- stats.kappa1972 .- stats.nosectoral .+ stats.nosectoral_kappa1972) ./ stats.kappa1972
-	
+
 		CSV.write(rootpath * "/output_table.csv", stats)
 	end
 	

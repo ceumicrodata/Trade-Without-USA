@@ -5,7 +5,7 @@
 - **Run specific table**: `make output/table1.csv`
 - **Install dependencies**: `julia --project install.jl` or `make install`
 - **Run single test**: `julia --project system_test.jl` or `julia --project unit_test.jl`
-- **Julia execution**: Always use `julia --project` to ensure correct package environment
+- **Julia execution**: Always use `julia +1.10 --project` to ensure correct package environment and compatibility
 - **Parallel execution**: Default uses 8 Julia threads (`PROCS=8`), adjust in Makefile as needed
 
 ## Code Style Guidelines

@@ -8,7 +8,7 @@ TABLES = baseline
 
 # default number of Julia threads to use. otherwise `make tables PROCS=12`
 PROCS = 8
-JULIA = julia --project -p$(PROCS)
+JULIA = julia +1.10 --project -p$(PROCS)
 
 tables: experiments/baseline/output_table.csv
 # ces_tables removed
