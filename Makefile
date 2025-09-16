@@ -10,7 +10,7 @@ TABLES = baseline
 PROCS = 1
 JULIA = julia +1.10 --project -p$(PROCS)
 
-tables: experiments/baseline/output_table.csv
+tables: experiments/baseline/no_usa_table.csv experiments/baseline/unilateral20_table.csv experiments/baseline/reciprocal20_table.csv
 # ces_tables removed
 
 # this takes too long to run, only run if explicitly asked `make S500`
@@ -31,8 +31,14 @@ endef
 
 $(foreach experiment,$(TABLES),$(eval $(call run_experiment,$(experiment))))
 
-experiments/%/output_table.csv: $(foreach column,$(COLUMNS),experiments/%/$(column)/results.jld2) output.jl table.jl
-	$(JULIA) table.jl $(dir $@)
+experiments/%/no_usa_table.csv: experiments/%/actual/results.jld2 experiments/%/no_usa/results.jld2 output.jl table.jl
+	$(JULIA) table.jl $(dir $@) no_usa
+
+experiments/%/unilateral20_table.csv: experiments/%/actual/results.jld2 experiments/%/unilateral20/results.jld2 output.jl table.jl
+	$(JULIA) table.jl $(dir $@) unilateral20
+
+experiments/%/reciprocal20_table.csv: experiments/%/actual/results.jld2 experiments/%/reciprocal20/results.jld2 output.jl table.jl
+	$(JULIA) table.jl $(dir $@) reciprocal20
 
 data: data/impvol_data.jld2
 data/impvol_data.jld2: read_data.jl data/*.csv data/*.txt

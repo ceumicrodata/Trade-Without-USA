@@ -114,26 +114,28 @@ module ImpvolOutput
 	##################################################################
 
 
-	function write_results(parameters, rootpath = "experiments/baseline/", key = :real_GDP, bool_detrend = true, dirsdown = 1, pattern = r"jld2$")
-		# Cross-sectional moments at t=1 for each scenario
+
+
+	function write_scenario_results(parameters, rootpath = "experiments/baseline/", scenario = "unilateral20", key = :real_GDP, bool_detrend = true, dirsdown = 1, pattern = r"jld2$")
+		# Cross-sectional moments comparing scenario against actual baseline
 		# Read country names
 		country_names = CSV.read("data/country_name.txt", DataFrame; header = false, types = [String])
 		println("Dimensions of country_names: ", size(country_names))
 
-		# Create 'stats' DataFrame with new schema for cross-sectional moments
+		# Create 'stats' DataFrame for scenario comparison
 		stats = DataFrame(
 			country_names = country_names[!, 1],
 			gdp_actual = Vector{Float64}(undef, size(country_names, 1)),
-			gdp_no_usa = Vector{Float64}(undef, size(country_names, 1)),
+			gdp_scenario = Vector{Float64}(undef, size(country_names, 1)),
 			exports_actual = Vector{Float64}(undef, size(country_names, 1)),
-			exports_no_usa = Vector{Float64}(undef, size(country_names, 1)),
+			exports_scenario = Vector{Float64}(undef, size(country_names, 1)),
 			imports_actual = Vector{Float64}(undef, size(country_names, 1)),
-			imports_no_usa = Vector{Float64}(undef, size(country_names, 1))
+			imports_scenario = Vector{Float64}(undef, size(country_names, 1))
 		)
 		println("Dimensions of stats: ", size(stats))
 
 		# Fill 'stats' DataFrame with cross-sectional moments
-		for col in ["actual", "no_usa"]
+		for col in ["actual", scenario]
 			results = read_results(joinpath(rootpath, col, "results.jld2"))
 
 			# Compute GDP by country (sum over sectors)
@@ -143,11 +145,10 @@ module ImpvolOutput
 			# Compute exports and imports from E_mjs (expenditures)
 			E = make_series(results, :E_mjs)  # (M,1,J) where M=importers, N=exporters
 			D = make_series(results, :d_mnjs)  # (M,N,J) where M=importers, N=exporters, J=sectors, import shares
-			# exclucde own country from imports
+			# exclude own country from imports
 			for n = 1:parameters[:N]
 				D[n, n, :] .= 0.0
 			end
-			# FIXME: no, E is expenditure, we have to compute exports and imports from that
 			imports_country = sum(E .* D, dims=(2,3))[:]  # sum over sectors j and exporters n for each importer m
 			exports_country = sum(E .* D, dims=(1,3))[:]  #
 
@@ -156,32 +157,37 @@ module ImpvolOutput
 				stats[!, :gdp_actual] = gdp_country
 				stats[!, :exports_actual] = exports_country
 				stats[!, :imports_actual] = imports_country
-			elseif col == "no_usa"
-				stats[!, :gdp_no_usa] = gdp_country
-				stats[!, :exports_no_usa] = exports_country
-				stats[!, :imports_no_usa] = imports_country
+			else  # scenario column
+				stats[!, :gdp_scenario] = gdp_country
+				stats[!, :exports_scenario] = exports_country
+				stats[!, :imports_scenario] = imports_country
 			end
-			# round all variables to integer
-			stats[!, :gdp_actual] = round.(stats.gdp_actual)
-			stats[!, :gdp_no_usa] = round.(stats.gdp_no_usa)
-			stats[!, :exports_actual] = round.(stats.exports_actual)
-			stats[!, :exports_no_usa] = round.(stats.exports_no_usa)
-			stats[!, :imports_actual] = round.(stats.imports_actual)
-			stats[!, :imports_no_usa] = round.(stats.imports_no_usa)			
 		end
+		
+		# round all variables to integer
+		stats[!, :gdp_actual] = round.(stats.gdp_actual)
+		stats[!, :gdp_scenario] = round.(stats.gdp_scenario)
+		stats[!, :exports_actual] = round.(stats.exports_actual)
+		stats[!, :exports_scenario] = round.(stats.exports_scenario)
+		stats[!, :imports_actual] = round.(stats.imports_actual)
+		stats[!, :imports_scenario] = round.(stats.imports_scenario)
 
 		# compute percentage change relative to actual
 		# round to 1 decimal place
-		stats[!, :gdp_pct_change] = round.(100 * (stats.gdp_no_usa .- stats.gdp_actual) ./ stats.gdp_actual, digits=1)
-		stats[!, :exports_pct_change] = round.(100 * (stats.exports_no_usa .- stats.exports_actual) ./ stats.exports_actual, digits=1)
-		stats[!, :imports_pct_change] = round.(100 * (stats.imports_no_usa .- stats.imports_actual) ./ stats.imports_actual, digits=1)
+		stats[!, :gdp_pct_change] = round.(100 * (stats.gdp_scenario .- stats.gdp_actual) ./ stats.gdp_actual, digits=1)
+		stats[!, :exports_pct_change] = round.(100 * (stats.exports_scenario .- stats.exports_actual) ./ stats.exports_actual, digits=1)
+		stats[!, :imports_pct_change] = round.(100 * (stats.imports_scenario .- stats.imports_actual) ./ stats.imports_actual, digits=1)
+
+		# Rename scenario columns to include the scenario name
+		rename!(stats, :gdp_scenario => Symbol("gdp_", scenario))
+		rename!(stats, :exports_scenario => Symbol("exports_", scenario))
+		rename!(stats, :imports_scenario => Symbol("imports_", scenario))
 
 		@debug stats
 
-		CSV.write(rootpath * "/output_table.csv", stats)
+		CSV.write(rootpath * "/" * scenario * "_table.csv", stats)
 	end
 	
-
 	################ Running the 'write_results' function ################
 	# include("output.jl")
 	# parameters = Dict{Symbol, Any}()

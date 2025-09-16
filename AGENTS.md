@@ -36,10 +36,16 @@
 ### 3. Experiment Simplification
 - **Keep only baseline experiment**: Retain `experiments/baseline/` directory
 - **Remove other experiments**: Delete CES variants, theta variants, rho variants, etc.
-- **Maintain two scenarios**: Keep only `actual` and modified counterfactual scenarios
+- **Multiple scenarios supported**: `actual` (baseline), `no_usa`, `unilateral20`, `reciprocal20`
 - **Makefile update**: Simplify targets to focus on single experiment output
 
-### 4. Computing New Moments
+### 4. Scenario Table Generation
+- **Unified table generation**: Single `table.jl` script with parametrized scenario name
+- **Function used**: `ImpvolOutput.write_scenario_results()` compares any scenario against baseline
+- **Output format**: Each scenario generates `<scenario>_table.csv` with GDP, exports, imports and percentage changes
+- **Adding new scenarios**: Create scenario folder with `change_parameters.jl` and `scenario.jl`, add Makefile target
+
+### 5. Computing New Moments
 Here’s where moments are computed and how they are written to tables, so you can adapt them for
 different actual vs counterfactual moments.
 

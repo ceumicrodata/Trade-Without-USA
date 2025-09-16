@@ -1,5 +1,17 @@
 include("output.jl")
-parameters = Dict{Symbol, Any}()
+using .ImpvolOutput
+using FileIO, JLD2
+
+# Usage: julia table.jl <rootpath> <scenario>
+# Example: julia table.jl experiments/baseline/ no_usa
+
+rootpath = ARGS[1]
+scenario = ARGS[2]
+
+# load file with parameters
+parameters = load(rootpath * "common_parameters.jld2")["parameters"]
+# add in N to allow the write_results() function to run without full parameters
 parameters[:N] = 25
-parameters[:bp_weights] = [0.774074394803123, -0.201004684236153, -0.135080548288772,-0.050951964876636]
-stats = ImpvolOutput.write_results(parameters, ARGS[1], :real_GDP, false)
+# no need for bp_weights since we're not detrending
+
+ImpvolOutput.write_scenario_results(parameters, rootpath, scenario, :real_GDP, true)
