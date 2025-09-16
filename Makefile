@@ -1,7 +1,7 @@
 .PHONY: data install tables template calibrate
 CALIBRATION = calibrate_params.jl calibration_utils.jl experiments/config.jl data/impvol_data.jld2
 EQULIBRIUM = utils.jl equilibrium.jl experiments/config.jl
-COLUMNS = actual no_usa
+COLUMNS = actual no_usa unilateral20 reciprocal20
 # CES experiments removed
 TABLES = baseline
 .PRECIOUS: $(foreach table,$(TABLES),$(foreach column,$(COLUMNS),experiments/$(table)/$(column)/results.jld2))

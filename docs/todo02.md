@@ -72,7 +72,7 @@ parameters[:one_over_rho] = 1000.0  # Very large = instant adjustment
 #### 4.2 Modify scenario execution (in scenario.jl files):
 ```julia
 # Current parallel execution over time:
-@time results = pmap(t -> (t, ImpvolEquilibrium.period_wrapper(parameters, t)), 1:parameters[:T])
+@time results = ImpvolEquilibrium.period_wrapper(parameters, 1)
 
 # With T=1 and S=1, this becomes a single computation:
 @time results = [(1, ImpvolEquilibrium.period_wrapper(parameters, 1))]
